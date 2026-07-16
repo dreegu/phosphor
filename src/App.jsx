@@ -250,6 +250,7 @@ export default function Phosphor() {
   const [outputUrl, setOutputUrl] = useState(null);
   const [copied, setCopied] = useState(false);
   const imgRef = useRef(null);
+  const ctrlRef = useRef(null);
 
   const handleFile = (e) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -295,7 +296,11 @@ export default function Phosphor() {
     lImg.src = LEFT_HAND_B64;
   };
 
-  const handleModeChange = (m) => { setMode(m); setSourceDevice(null); };
+  const handleModeChange = (m) => {
+    setMode(m);
+    setSourceDevice(null);
+    if (ctrlRef.current) ctrlRef.current.scrollTop = 0;
+  };
 
   const applySourceDevice = (key) => {
     const d = SOURCE_DEVICES[key];
@@ -394,7 +399,7 @@ export default function Phosphor() {
 
   useEffect(() => { if (imgRef.current) process(); }, [process]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!outputUrl) return;
     const now = new Date();
     const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
@@ -402,8 +407,23 @@ export default function Phosphor() {
     const base = fileName
       ? fileName.replace(/\.[^.]+$/, '').replace(/[^a-z0-9]/gi, '_').toLowerCase()
       : 'phosphor';
+    const filename = `${base}_${mode}_${time}.png`;
+
+    if (navigator.canShare) {
+      try {
+        const blob = await (await fetch(outputUrl)).blob();
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+          return;
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
     const a = document.createElement('a');
-    a.download = `${base}_${mode}_${time}.png`;
+    a.download = filename;
     a.href = outputUrl; a.click();
   };
 
@@ -429,6 +449,18 @@ export default function Phosphor() {
         .btn.on{border-color:#b45309;color:#fef3c7;background:#1c0a00}
         .ctrl::-webkit-scrollbar{width:3px}
         .ctrl::-webkit-scrollbar-thumb{background:#3f3f46}
+        @keyframes fadein{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
+        .anim-fadein{animation:fadein 0.18s ease-out}
+        @media (pointer:coarse){
+          .btn{padding:12px 0;min-height:44px}
+          .icon-btn{width:44px;height:44px}
+          .swatch{width:44px;height:44px}
+          .tap-target{min-height:44px;padding-top:10px;padding-bottom:10px}
+          .collapsible-header{min-height:44px}
+          .remove-btn{width:44px}
+          input[type=range]::-webkit-slider-thumb{width:20px;height:20px;margin-top:-9px}
+          input[type=checkbox]{width:18px;height:18px}
+        }
       `}</style>
 
       {/* HEADER */}
@@ -459,23 +491,23 @@ export default function Phosphor() {
             <div className="flex items-center justify-between px-3 py-2 border-t border-zinc-800 shrink-0 gap-2">
               <div className="flex items-center gap-1.5">
                 <button onClick={()=>setZoom(z=>Math.max(0.25,+(z-0.25).toFixed(2)))}
-                  className="w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
+                  className="icon-btn w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
                   <ZoomOut size={12}/>
                 </button>
                 <span className="text-xs text-zinc-600 w-10 text-center">{Math.round(zoom*100)}%</span>
                 <button onClick={()=>setZoom(z=>Math.min(4,+(z+0.25).toFixed(2)))}
-                  className="w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
+                  className="icon-btn w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
                   <ZoomIn size={12}/>
                 </button>
                 <button onClick={()=>setZoom(1)} className="text-xs text-zinc-600 hover:text-amber-400 ml-1">reset</button>
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs text-zinc-600 hover:text-amber-400 cursor-pointer border border-zinc-700 hover:border-amber-600 px-2 py-1">
+                <label className="tap-target text-xs text-zinc-600 hover:text-amber-400 cursor-pointer border border-zinc-700 hover:border-amber-600 px-2 py-1">
                   replace image
                   <input type="file" accept="image/*" className="hidden" onChange={handleFile}/>
                 </label>
                 <button onClick={handleDownload}
-                  className="flex items-center gap-1.5 px-3 py-1 border border-amber-900 text-amber-100 hover:bg-amber-950 text-xs tracking-wider">
+                  className="tap-target flex items-center gap-1.5 px-3 py-1 border border-amber-900 text-amber-100 hover:bg-amber-950 text-xs tracking-wider">
                   <Download size={11}/> export
                 </button>
               </div>
@@ -483,7 +515,7 @@ export default function Phosphor() {
           </div>
 
           {/* CONTROLS */}
-          <div className="ctrl w-72 xl:w-80 shrink-0 overflow-y-auto flex flex-col gap-2.5 p-3 bg-zinc-950 border-l border-zinc-800">
+          <div ref={ctrlRef} className="ctrl w-72 xl:w-80 shrink-0 overflow-y-auto flex flex-col gap-2.5 p-3 bg-zinc-950 border-l border-zinc-800">
 
             <Panel label="RENDER MODE">
               <div className="flex gap-1.5">
@@ -499,41 +531,7 @@ export default function Phosphor() {
               <NumSlider label="highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
             </Panel>
 
-            {mode==='dither' && <>
-              <Panel label="PALETTE">
-                <div className="flex gap-1 mb-1 flex-wrap">
-                  {Object.entries(PALETTE_PRESETS).map(([k,p])=>(
-                    <button key={k} onClick={()=>applyPalettePreset(k)}
-                      className="h-5 flex-1 border border-zinc-800 hover:border-amber-700 flex overflow-hidden min-w-[22px]" title={p.name}>
-                      {p.colors.map((c,i)=><span key={i} style={{background:c,flex:1}}/>)}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  {displayPalette.map(entry=>(
-                    <div key={entry.id} className="flex items-center gap-2">
-                      <div className="relative w-7 h-7 border border-zinc-700 shrink-0">
-                        <input type="color" value={entry.color} onChange={e=>updateColor(entry.id,e.target.value)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
-                        <div className="w-full h-full" style={{background:entry.color}}/>
-                      </div>
-                      <input type="range" min={0} max={1} step={0.01} value={entry.anchor}
-                        onChange={e=>updateAnchor(entry.id,parseFloat(e.target.value))} className="flex-1"/>
-                      {palette.length>2 &&
-                        <button onClick={()=>removeColor(entry.id)}
-                          className="text-zinc-600 hover:text-amber-400 w-4 flex items-center justify-center shrink-0">
-                          <X size={10}/>
-                        </button>}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-between text-xs text-zinc-700 mt-1"><span>shadows</span><span>highlights</span></div>
-                {palette.length<5 &&
-                  <button onClick={addColor}
-                    className="mt-1 w-full py-1 border border-dashed border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1 text-xs">
-                    <Plus size={10}/> add color
-                  </button>}
-              </Panel>
+            {mode==='dither' && <div key="dither" className="anim-fadein flex flex-col gap-2.5">
               <Panel label="PATTERN">
                 <div className="grid grid-cols-2 gap-1.5">
                   {[['bayer','GRID'],['cross','CROSS'],['diffusion','GRAIN'],['atkinson','ATKINSON']].map(([v,l])=>(
@@ -546,9 +544,43 @@ export default function Phosphor() {
                   onChange={setPixelSize} disabled={resLock&&!!sourceDevice}
                   hint={resLock&&sourceDevice?`${effectivePx}px locked`:undefined}/>
               </Panel>
-            </>}
+              <Panel label="PALETTE">
+                <div className="flex gap-1 mb-1 flex-wrap">
+                  {Object.entries(PALETTE_PRESETS).map(([k,p])=>(
+                    <button key={k} onClick={()=>applyPalettePreset(k)}
+                      className="h-5 flex-1 border border-zinc-800 hover:border-amber-700 flex overflow-hidden min-w-[22px]" title={p.name}>
+                      {p.colors.map((c,i)=><span key={i} style={{background:c,flex:1}}/>)}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {displayPalette.map(entry=>(
+                    <div key={entry.id} className="flex items-center gap-2">
+                      <div className="swatch relative w-7 h-7 border border-zinc-700 shrink-0">
+                        <input type="color" value={entry.color} onChange={e=>updateColor(entry.id,e.target.value)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
+                        <div className="w-full h-full" style={{background:entry.color}}/>
+                      </div>
+                      <input type="range" min={0} max={1} step={0.01} value={entry.anchor}
+                        onChange={e=>updateAnchor(entry.id,parseFloat(e.target.value))} className="flex-1"/>
+                      {palette.length>2 &&
+                        <button onClick={()=>removeColor(entry.id)}
+                          className="remove-btn text-zinc-600 hover:text-amber-400 w-4 flex items-center justify-center shrink-0">
+                          <X size={10}/>
+                        </button>}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between text-xs text-zinc-700 mt-1"><span>shadows</span><span>highlights</span></div>
+                {palette.length<5 &&
+                  <button onClick={addColor}
+                    className="mt-1 w-full py-1 border border-dashed border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1 text-xs">
+                    <Plus size={10}/> add color
+                  </button>}
+              </Panel>
+            </div>}
 
-            {mode==='ascii' && <>
+            {mode==='ascii' && <div key="ascii" className="anim-fadein flex flex-col gap-2.5">
               <Panel label="CHARACTER SET">
                 <div className="grid grid-cols-2 gap-1.5">
                   {Object.entries(ASCII_RAMPS).map(([k,v])=>(
@@ -564,9 +596,9 @@ export default function Phosphor() {
                 </div>
                 <NumSlider label="cell size" value={asciiSize} min={4} max={20} step={1} onChange={setAsciiSize}/>
               </Panel>
-            </>}
+            </div>}
 
-            {mode==='halftone' && <>
+            {mode==='halftone' && <div key="halftone" className="anim-fadein flex flex-col gap-2.5">
               <Panel label="DOT SHAPE">
                 <div className="grid grid-cols-2 gap-1.5">
                   {Object.entries(HT_SHAPES).map(([k,v])=>(
@@ -582,7 +614,7 @@ export default function Phosphor() {
                 <NumSlider label="dot size"     value={htSize}  min={1}  max={16} step={0.5} onChange={setHtSize}/>
                 <NumSlider label="screen angle" value={htAngle} min={0}  max={90} step={1}   onChange={setHtAngle}/>
               </Panel>
-            </>}
+            </div>}
 
             <Panel label="ATMOSPHERE">
               <NumSlider label="bloom"     value={bloom}     min={0} max={100} step={1} onChange={setBloom}/>
@@ -593,7 +625,7 @@ export default function Phosphor() {
             {/* SOURCE DEVICE — collapsible */}
             <div className="border border-zinc-800">
               <button onClick={()=>setDeviceOpen(o=>!o)}
-                className="w-full flex items-center justify-between px-3 py-2 text-xs text-zinc-600 hover:text-zinc-400 tracking-widest">
+                className="collapsible-header w-full flex items-center justify-between px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200 tracking-widest">
                 <span>SOURCE DEVICE</span>
                 {deviceOpen?<ChevronUp size={12}/>:<ChevronDown size={12}/>}
               </button>
@@ -629,13 +661,13 @@ export default function Phosphor() {
                 <input type="checkbox" checked={transparentBg} onChange={e=>setTransparentBg(e.target.checked)} className="accent-amber-600"/>
               </label>
               <button onClick={handleDownload}
-                className="flex items-center justify-center gap-2 py-2 border border-amber-900 text-amber-100 hover:bg-amber-950 text-xs tracking-wider transition-colors">
+                className="tap-target flex items-center justify-center gap-2 py-2 border border-amber-900 text-amber-100 hover:bg-amber-950 text-xs tracking-wider transition-colors">
                 <Download size={11}/> export png
               </button>
             </Panel>
 
             <button onClick={copySettings}
-              className="flex items-center justify-center gap-2 py-2 border border-zinc-800 text-zinc-600 hover:text-amber-400 hover:border-amber-800 text-xs tracking-wider transition-colors">
+              className="tap-target flex items-center justify-center gap-2 py-2 border border-zinc-800 text-zinc-600 hover:text-amber-400 hover:border-amber-800 text-xs tracking-wider transition-colors">
               <Copy size={11}/> {copied?'copied!':'copy settings'}
             </button>
 
@@ -649,7 +681,7 @@ export default function Phosphor() {
 function Panel({label,children}) {
   return (
     <div className="border border-zinc-800 p-3">
-      <div className="text-xs text-zinc-600 tracking-widest mb-2.5">{label}</div>
+      <div className="text-xs text-zinc-400 tracking-widest mb-2.5">{label}</div>
       <div className="flex flex-col gap-2">{children}</div>
     </div>
   );
@@ -679,7 +711,7 @@ function NumSlider({label,value,min,max,step,onChange,hint,disabled}) {
 function ColorSwatch({label,value,onChange}) {
   return (
     <div className="flex items-center gap-1.5">
-      <div className="relative w-7 h-7 border border-zinc-700 shrink-0">
+      <div className="swatch relative w-7 h-7 border border-zinc-700 shrink-0">
         <input type="color" value={value} onChange={e=>onChange(e.target.value)}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
         <div className="w-full h-full" style={{background:value}}/>
