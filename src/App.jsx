@@ -114,7 +114,7 @@ function getBlueNoise() {
 }
 
 // ─── RENDER: DITHER ──────────────────────────────────────────────────────────
-function renderDither({img,w,h,px,palette,algo,getY}) {
+function renderDither({img,w,h,px,palette,algo,getY,transparent}) {
   const sw = Math.max(1,Math.round(w/px)), sh = Math.max(1,Math.round(h/px));
   const small = document.createElement('canvas');
   small.width=sw; small.height=sh;
@@ -125,6 +125,7 @@ function renderDither({img,w,h,px,palette,algo,getY}) {
   const sorted = [...palette].sort((a,b) => a.anchor-b.anchor);
   const cols = sorted.map(p => hexToRgb(p.color));
   const lums = sorted.map(p => p.anchor);
+  const bgIdx = cols.length-1;   // highest anchor = lightest = background when exporting transparent
   const out = new Uint8ClampedArray(sw*sh*4);
   const qOrd = (Y,x,y,matrix,size,maxVal) => {
     if (Y<=lums[0]) return 0;
@@ -143,7 +144,7 @@ function renderDither({img,w,h,px,palette,algo,getY}) {
       const i=(y*sw+x)*4;
       const Y=getY(data[i],data[i+1],data[i+2]);
       const idx=qOrd(Y,x,y,matrix,size,max);
-      const c=cols[idx]; out[i]=c[0];out[i+1]=c[1];out[i+2]=c[2];out[i+3]=255;
+      const c=cols[idx]; out[i]=c[0];out[i+1]=c[1];out[i+2]=c[2];out[i+3]=(transparent&&idx===bgIdx)?0:255;
     }
   } else {
     const work=new Float32Array(sw*sh);
@@ -155,7 +156,7 @@ function renderDither({img,w,h,px,palette,algo,getY}) {
       let best=0,bestD=Infinity;
       for (let k=0;k<gL.length;k++){const d=Math.abs(v-gL[k]);if(d<bestD){bestD=d;best=k;}}
       const err=v-gL[best]; const c=cols[best]; const oi=i*4;
-      out[oi]=c[0];out[oi+1]=c[1];out[oi+2]=c[2];out[oi+3]=255;
+      out[oi]=c[0];out[oi+1]=c[1];out[oi+2]=c[2];out[oi+3]=(transparent&&best===bgIdx)?0:255;
       if (algo==='atkinson') {
         const e=err/8;
         if(x+1<sw)work[i+1]+=e; if(x+2<sw)work[i+2]+=e;
@@ -180,7 +181,7 @@ function renderDither({img,w,h,px,palette,algo,getY}) {
 }
 
 // ─── RENDER: ASCII ───────────────────────────────────────────────────────────
-function renderAscii({img,w,h,ramp,fgColor,bgColor,cellSize,getY}) {
+function renderAscii({img,w,h,ramp,fgColor,bgColor,cellSize,getY,transparent}) {
   const chars=ASCII_RAMPS[ramp]?.chars||ASCII_RAMPS.standard.chars;
   const cell=Math.max(4,cellSize);
   const cols=Math.floor(w/cell), rows=Math.floor(h/cell);
@@ -193,7 +194,7 @@ function renderAscii({img,w,h,ramp,fgColor,bgColor,cellSize,getY}) {
   const canvas=document.createElement('canvas');
   canvas.width=cols*cell; canvas.height=rows*cell;
   const ctx=canvas.getContext('2d');
-  ctx.fillStyle=bgColor; ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(!transparent){ ctx.fillStyle=bgColor; ctx.fillRect(0,0,canvas.width,canvas.height); }
   ctx.fillStyle=fgColor; ctx.font=`${cell}px monospace`; ctx.textBaseline='top';
   for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
     const i=(r*cols+c)*4;
@@ -206,7 +207,7 @@ function renderAscii({img,w,h,ramp,fgColor,bgColor,cellSize,getY}) {
 }
 
 // ─── RENDER: HALFTONE ────────────────────────────────────────────────────────
-function renderHalftone({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY}) {
+function renderHalftone({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY,transparent}) {
   const scale=0.5;
   const sw=Math.round(w*scale), sh=Math.round(h*scale);
   const small=document.createElement('canvas');
@@ -218,7 +219,7 @@ function renderHalftone({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY}) 
   const canvas=document.createElement('canvas');
   canvas.width=w; canvas.height=h;
   const ctx=canvas.getContext('2d');
-  ctx.fillStyle=paperColor; ctx.fillRect(0,0,w,h);
+  if(!transparent){ ctx.fillStyle=paperColor; ctx.fillRect(0,0,w,h); }
   ctx.fillStyle=inkColor;
   const rad=angle*Math.PI/180;
   const cosA=Math.cos(rad), sinA=Math.sin(rad);
@@ -513,32 +514,33 @@ export default function Phosphor() {
     setEffectivePx(Math.max(1,Math.round(px/D)));
 
     let canvas;
-    if(mode==='dither') canvas=renderDither({img,w,h,px,palette,algo,getY});
-    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:asciiSize*D,getY});
-    else if(mode==='halftone') canvas=renderHalftone({img,w,h,shape:htShape,dotSize:htSize*D,angle:htAngle,inkColor:htInk,paperColor:htPaper,getY});
+    const tp=transparentBg;
+    if(mode==='dither') canvas=renderDither({img,w,h,px,palette,algo,getY,transparent:tp});
+    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:asciiSize*D,getY,transparent:tp});
+    else if(mode==='halftone') canvas=renderHalftone({img,w,h,shape:htShape,dotSize:htSize*D,angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
     if (!canvas) return;
 
     const darkColor=mode==='dither'
       ?'#'+[...palette].sort((a,b)=>a.anchor-b.anchor)[0]?.color?.slice(1)
       :mode==='ascii'?asciiBg:'#000000';
 
+    // Snapshot the rendered alpha so atmosphere passes can't paint over transparent areas.
+    let alphaMask=null;
+    if(tp){
+      const ctx=canvas.getContext('2d');
+      const id=ctx.getImageData(0,0,canvas.width,canvas.height);
+      alphaMask=new Uint8ClampedArray(canvas.width*canvas.height);
+      for(let i=0,p=0;i<id.data.length;i+=4,p++) alphaMask[p]=id.data[i+3];
+    }
+
     applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chromaShift,darkColor});
 
-    // Transparency export: make lightest color transparent
-    if (transparentBg) {
-      const sorted = [...palette].sort((a,b) => b.anchor - a.anchor);
-      const lightestHex = mode==='dither' ? sorted[0]?.color : mode==='halftone' ? htPaper : asciiBg;
-      const [lr,lg,lb] = hexToRgb(lightestHex||'#ffffff');
-      const ctx = canvas.getContext('2d');
-      const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const d = id.data;
-      const tol = 30;
-      for (let i=0; i<d.length; i+=4) {
-        if (Math.abs(d[i]-lr)<tol && Math.abs(d[i+1]-lg)<tol && Math.abs(d[i+2]-lb)<tol) {
-          d[i+3] = 0;
-        }
-      }
-      ctx.putImageData(id, 0, 0);
+    if(tp&&alphaMask){
+      const ctx=canvas.getContext('2d');
+      const id=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const d=id.data;
+      for(let i=0,p=0;i<d.length;i+=4,p++) d[i+3]=alphaMask[p];
+      ctx.putImageData(id,0,0);
     }
 
     setOutputUrl(canvas.toDataURL('image/png'));
