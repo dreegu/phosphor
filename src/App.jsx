@@ -319,6 +319,7 @@ export default function Phosphor() {
   const [pixelSize, setPixelSize] = useState(5);
   const [resLock, setResLock] = useState(false);
   const [effectivePx, setEffectivePx] = useState(5);
+  const [definition, setDefinition] = useState(1);
 
   const [asciiRamp, setAsciiRamp] = useState('standard');
   const [asciiFg, setAsciiFg] = useState('#00ff41');
@@ -424,6 +425,7 @@ export default function Phosphor() {
     if(s.mode!==undefined) setMode(s.mode);
     if(s.algo!==undefined) setAlgo(s.algo);
     if(s.pixelSize!==undefined) setPixelSize(s.pixelSize);
+    if(s.definition!==undefined) setDefinition(s.definition);
     if(s.palette!==undefined) setPalette(s.palette.map(p=>mkEntry(p.color,p.anchor)));
     if(s.asciiRamp!==undefined) setAsciiRamp(s.asciiRamp);
     if(s.asciiFg!==undefined) setAsciiFg(s.asciiFg);
@@ -453,12 +455,12 @@ export default function Phosphor() {
   };
 
   const getSettings = useCallback(() => ({
-    mode, algo, pixelSize,
+    mode, algo, pixelSize, definition,
     palette: palette.map(({color,anchor})=>({color,anchor})),
     asciiRamp, asciiFg, asciiBg, asciiSize,
     htShape, htSize, htAngle, htInk, htPaper,
     contrast, midtones, highlights, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
-  }), [mode,algo,pixelSize,palette,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
+  }), [mode,algo,pixelSize,definition,palette,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
 
   const copySettings = () => {
     navigator.clipboard.writeText(JSON.stringify(getSettings(), null, 2));
@@ -492,7 +494,9 @@ export default function Phosphor() {
     const maxDim=900;
     let w=img.naturalWidth, h=img.naturalHeight;
     const sc=Math.min(1,maxDim/Math.max(w,h));
-    w=Math.max(1,Math.round(w*sc)); h=Math.max(1,Math.round(h*sc));
+    // base dims (<=900), then supersample by the definition multiplier for crisp output
+    const D=definition;
+    w=Math.max(1,Math.round(w*sc*D)); h=Math.max(1,Math.round(h*sc*D));
 
     const cf=(100+contrast)/100;
     const getY=(r,g,b)=>{
@@ -504,13 +508,14 @@ export default function Phosphor() {
     };
 
     const dev=sourceDevice?SOURCE_DEVICES[sourceDevice]:null;
-    const px=resLock&&dev?.width?Math.max(1,Math.round(w/dev.width)):Math.max(1,pixelSize);
-    setEffectivePx(px);
+    // native res-lock maps to w/dev.width (already scales with D); manual sizes scale by D so the composition is constant
+    const px=resLock&&dev?.width?Math.max(1,Math.round(w/dev.width)):Math.max(1,pixelSize*D);
+    setEffectivePx(Math.max(1,Math.round(px/D)));
 
     let canvas;
     if(mode==='dither') canvas=renderDither({img,w,h,px,palette,algo,getY});
-    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:asciiSize,getY});
-    else if(mode==='halftone') canvas=renderHalftone({img,w,h,shape:htShape,dotSize:htSize,angle:htAngle,inkColor:htInk,paperColor:htPaper,getY});
+    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:asciiSize*D,getY});
+    else if(mode==='halftone') canvas=renderHalftone({img,w,h,shape:htShape,dotSize:htSize*D,angle:htAngle,inkColor:htInk,paperColor:htPaper,getY});
     if (!canvas) return;
 
     const darkColor=mode==='dither'
@@ -537,7 +542,7 @@ export default function Phosphor() {
     }
 
     setOutputUrl(canvas.toDataURL('image/png'));
-  }, [mode,palette,algo,pixelSize,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
+  }, [mode,palette,algo,pixelSize,definition,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -636,7 +641,7 @@ export default function Phosphor() {
               <div style={{transform:`scale(${zoom})`,transformOrigin:'center center',transition:'transform 0.15s'}}>
                 <img src={outputUrl||imageSrc} alt="preview"
                   className="max-w-full max-h-full block"
-                  style={{imageRendering:'pixelated'}}/>
+                  style={{imageRendering:mode==='ascii'?'auto':'pixelated'}}/>
               </div>
               <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-10">
                 <div className="sweep absolute left-0 right-0 h-1/3 bg-gradient-to-b from-transparent via-amber-200 to-transparent"/>
@@ -684,6 +689,15 @@ export default function Phosphor() {
               <NumSlider label="contrast"   value={contrast}   min={-100} max={100} step={1}    onChange={setContrast}/>
               <NumSlider label="midtones"   value={midtones}   min={0.3}  max={2.5} step={0.05} onChange={setMidtones}/>
               <NumSlider label="highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
+            </Panel>
+
+            <Panel label="DEFINITION">
+              <div className="grid grid-cols-3 gap-1.5">
+                {[[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>(
+                  <button key={v} onClick={()=>setDefinition(v)} className={`btn ${definition===v?'on':''}`}>{l}</button>
+                ))}
+              </div>
+              <div className="text-xs text-zinc-600 mt-1">higher = sharper edges &amp; crisper characters, same composition</div>
             </Panel>
 
             {mode==='dither' && <div key="dither" className="anim-fadein flex flex-col gap-2.5">
