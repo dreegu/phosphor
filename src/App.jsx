@@ -190,14 +190,31 @@ function renderHalftone({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY}) 
 }
 
 // ─── POST: ATMOSPHERE ────────────────────────────────────────────────────────
-function applyAtmosphere(canvas,{bloom,scanlines,noise,chromaShift,darkColor}) {
+function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chromaShift,darkColor}) {
   const ctx=canvas.getContext('2d');
   const{width:w,height:h}=canvas;
-  if(bloom>0){
-    const blurPx=(bloom/100)*Math.min(w,h)*0.06;
-    const b=document.createElement('canvas'); b.width=w; b.height=h;
-    const bctx=b.getContext('2d'); bctx.filter=`blur(${blurPx}px)`; bctx.drawImage(canvas,0,0);
-    ctx.save(); ctx.globalCompositeOperation='screen'; ctx.globalAlpha=Math.min(1,(bloom/100)*1.4); ctx.drawImage(b,0,0); ctx.restore();
+  if(phosphorGlow>0){
+    const g=phosphorGlow/100;
+    const blurPx=g*Math.min(w,h)*0.06;
+    // isolate pixels above 80% brightness into their own layer
+    const src=ctx.getImageData(0,0,w,h); const sd=src.data;
+    const bright=document.createElement('canvas'); bright.width=w; bright.height=h;
+    const brctx=bright.getContext('2d');
+    const bimg=brctx.createImageData(w,h); const bd=bimg.data;
+    for(let i=0;i<sd.length;i+=4){
+      const lum=(0.299*sd[i]+0.587*sd[i+1]+0.114*sd[i+2])/255;
+      if(lum>0.8){ bd[i]=sd[i]; bd[i+1]=sd[i+1]; bd[i+2]=sd[i+2]; bd[i+3]=255; }
+    }
+    brctx.putImageData(bimg,0,0);
+    // blur the isolated highlights and screen-composite back
+    const blur=document.createElement('canvas'); blur.width=w; blur.height=h;
+    const blctx=blur.getContext('2d'); blctx.filter=`blur(${blurPx}px)`; blctx.drawImage(bright,0,0);
+    ctx.save(); ctx.globalCompositeOperation='screen'; ctx.globalAlpha=Math.min(1,g*1.4); ctx.drawImage(blur,0,0); ctx.restore();
+  }
+  if(luminanceLift>0){
+    // gentle uniform overexposure via additive white at very low opacity
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=(luminanceLift/100)*0.25;
+    ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,w,h); ctx.restore();
   }
   if(scanlines>0){
     ctx.save(); ctx.globalAlpha=(scanlines/100)*0.55; ctx.fillStyle=darkColor||'#000';
@@ -263,7 +280,8 @@ export default function Phosphor() {
   const [midtones, setMidtones] = useState(1);
   const [highlights, setHighlights] = useState(1);
 
-  const [bloom, setBloom] = useState(0);
+  const [phosphorGlow, setPhosphorGlow] = useState(0);
+  const [luminanceLift, setLuminanceLift] = useState(0);
   const [scanlines, setScanlines] = useState(0);
   const [noise, setNoise] = useState(0);
   const [chromaShift, setChromaShift] = useState(0);
@@ -350,8 +368,8 @@ export default function Phosphor() {
     palette: palette.map(({color,anchor})=>({color,anchor})),
     asciiRamp, asciiFg, asciiBg, asciiSize,
     htShape, htSize, htAngle, htInk, htPaper,
-    contrast, midtones, highlights, bloom, scanlines, noise, chromaShift,
-  }), [mode,algo,pixelSize,palette,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,bloom,scanlines,noise,chromaShift]);
+    contrast, midtones, highlights, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
+  }), [mode,algo,pixelSize,palette,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
 
   const copySettings = () => {
     navigator.clipboard.writeText(JSON.stringify(getSettings(), null, 2));
@@ -390,7 +408,7 @@ export default function Phosphor() {
       ?'#'+[...palette].sort((a,b)=>a.anchor-b.anchor)[0]?.color?.slice(1)
       :mode==='ascii'?asciiBg:'#000000';
 
-    applyAtmosphere(canvas,{bloom,scanlines,noise,chromaShift,darkColor});
+    applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chromaShift,darkColor});
 
     // Transparency export: make lightest color transparent
     if (transparentBg) {
@@ -410,7 +428,7 @@ export default function Phosphor() {
     }
 
     setOutputUrl(canvas.toDataURL('image/png'));
-  }, [mode,palette,algo,pixelSize,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,bloom,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
+  }, [mode,palette,algo,pixelSize,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -639,7 +657,8 @@ export default function Phosphor() {
             </div>}
 
             <Panel label="ATMOSPHERE">
-              <NumSlider label="bloom"     value={bloom}     min={0} max={100} step={1} onChange={setBloom}/>
+              <NumSlider label="phosphor glow"  value={phosphorGlow}  min={0} max={100} step={1} onChange={setPhosphorGlow}/>
+              <NumSlider label="luminance lift" value={luminanceLift} min={0} max={100} step={1} onChange={setLuminanceLift}/>
               <NumSlider label="scanlines" value={scanlines} min={0} max={100} step={1} onChange={setScanlines}/>
               <NumSlider label="noise"     value={noise}     min={0} max={100} step={1} onChange={setNoise}/>
               <NumSlider label="chroma shift" value={chromaShift} min={0} max={20} step={0.5} onChange={setChromaShift}/>
