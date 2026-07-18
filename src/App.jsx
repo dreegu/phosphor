@@ -414,6 +414,8 @@ export default function Phosphor() {
     if(d.htAngle) setHtAngle(d.htAngle);
     if(d.htInk) setHtInk(d.htInk);
     if(d.htPaper) setHtPaper(d.htPaper);
+    // Show the device's authentic pixel grid immediately; the checkbox can still turn it off.
+    setResLock(!!d.width);
   };
 
   const applyPalettePreset = (key) => {
