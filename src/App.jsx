@@ -190,7 +190,7 @@ function renderHalftone({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY}) 
 }
 
 // ─── POST: ATMOSPHERE ────────────────────────────────────────────────────────
-function applyAtmosphere(canvas,{bloom,scanlines,noise,darkColor}) {
+function applyAtmosphere(canvas,{bloom,scanlines,noise,chromaShift,darkColor}) {
   const ctx=canvas.getContext('2d');
   const{width:w,height:h}=canvas;
   if(bloom>0){
@@ -212,6 +212,21 @@ function applyAtmosphere(canvas,{bloom,scanlines,noise,darkColor}) {
       ctx.fillRect(Math.random()*w,Math.random()*h,1,1);
     }
     ctx.restore();
+  }
+  if(chromaShift>0){
+    const off=Math.round(chromaShift);
+    const src=ctx.getImageData(0,0,w,h); const sd=src.data;
+    const out=ctx.createImageData(w,h); const od=out.data;
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      const rx=Math.min(w-1,Math.max(0,x+off));   // red channel shifted +off
+      const bx=Math.min(w-1,Math.max(0,x-off));   // blue channel shifted -off
+      od[i]  =sd[(y*w+rx)*4];       // R
+      od[i+1]=sd[i+1];              // G unchanged
+      od[i+2]=sd[(y*w+bx)*4+2];     // B
+      od[i+3]=sd[i+3];              // A
+    }
+    ctx.putImageData(out,0,0);
   }
 }
 
@@ -251,6 +266,7 @@ export default function Phosphor() {
   const [bloom, setBloom] = useState(0);
   const [scanlines, setScanlines] = useState(0);
   const [noise, setNoise] = useState(0);
+  const [chromaShift, setChromaShift] = useState(0);
 
   const [transparentBg, setTransparentBg] = useState(false);
   const [outputUrl, setOutputUrl] = useState(null);
@@ -334,8 +350,8 @@ export default function Phosphor() {
     palette: palette.map(({color,anchor})=>({color,anchor})),
     asciiRamp, asciiFg, asciiBg, asciiSize,
     htShape, htSize, htAngle, htInk, htPaper,
-    contrast, midtones, highlights, bloom, scanlines, noise,
-  }), [mode,algo,pixelSize,palette,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,bloom,scanlines,noise]);
+    contrast, midtones, highlights, bloom, scanlines, noise, chromaShift,
+  }), [mode,algo,pixelSize,palette,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,bloom,scanlines,noise,chromaShift]);
 
   const copySettings = () => {
     navigator.clipboard.writeText(JSON.stringify(getSettings(), null, 2));
@@ -374,7 +390,7 @@ export default function Phosphor() {
       ?'#'+[...palette].sort((a,b)=>a.anchor-b.anchor)[0]?.color?.slice(1)
       :mode==='ascii'?asciiBg:'#000000';
 
-    applyAtmosphere(canvas,{bloom,scanlines,noise,darkColor});
+    applyAtmosphere(canvas,{bloom,scanlines,noise,chromaShift,darkColor});
 
     // Transparency export: make lightest color transparent
     if (transparentBg) {
@@ -394,7 +410,7 @@ export default function Phosphor() {
     }
 
     setOutputUrl(canvas.toDataURL('image/png'));
-  }, [mode,palette,algo,pixelSize,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,bloom,scanlines,noise,sourceDevice,resLock,transparentBg]);
+  }, [mode,palette,algo,pixelSize,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,bloom,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -626,6 +642,7 @@ export default function Phosphor() {
               <NumSlider label="bloom"     value={bloom}     min={0} max={100} step={1} onChange={setBloom}/>
               <NumSlider label="scanlines" value={scanlines} min={0} max={100} step={1} onChange={setScanlines}/>
               <NumSlider label="noise"     value={noise}     min={0} max={100} step={1} onChange={setNoise}/>
+              <NumSlider label="chroma shift" value={chromaShift} min={0} max={20} step={0.5} onChange={setChromaShift}/>
             </Panel>
 
             {/* SOURCE DEVICE — collapsible */}
