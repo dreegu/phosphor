@@ -67,6 +67,51 @@ function luminance([r,g,b]) { return (0.299*r + 0.587*g + 0.114*b) / 255; }
 let _id = 0;
 function mkEntry(color, anchor) { return { id: _id++, color, anchor }; }
 
+// Error-diffusion kernels: taps are [dx,dy,weight], distributed over div.
+const DIFFUSION_KERNELS = {
+  diffusion: { div:16, taps:[[1,0,7],[-1,1,3],[0,1,5],[1,1,1]] },                                                        // Floyd–Steinberg
+  stucki:    { div:42, taps:[[1,0,8],[2,0,4],[-2,1,2],[-1,1,4],[0,1,8],[1,1,4],[2,1,2],[-2,2,1],[-1,2,2],[0,2,4],[1,2,2],[2,2,1]] },
+  sierra:    { div:32, taps:[[1,0,5],[2,0,3],[-2,1,2],[-1,1,4],[0,1,5],[1,1,4],[2,1,2],[-1,2,2],[0,2,3],[1,2,2]] },
+};
+
+// 64×64 blue-noise threshold matrix via void-and-cluster (Ulichney).
+// Generated once and cached on first use — not per render, not per click.
+let _blueNoise = null;
+function getBlueNoise() {
+  if (_blueNoise) return _blueNoise;
+  const N=64, NP=N*N, SIGMA=1.9, sig2=2*SIGMA*SIGMA, R=Math.ceil(SIGMA*3);
+  const kernel=[];
+  for(let dy=-R;dy<=R;dy++) for(let dx=-R;dx<=R;dx++) kernel.push([dx,dy,Math.exp(-(dx*dx+dy*dy)/sig2)]);
+  const energy=new Float32Array(NP), binary=new Uint8Array(NP);
+  const addEnergy=(p,sign)=>{ const px=p%N, py=(p/N)|0;
+    for(const[dx,dy,wt]of kernel){ const x=(px+dx+N)%N, y=(py+dy+N)%N; energy[y*N+x]+=sign*wt; } };
+  const tightest=()=>{ let b=-1,bv=-Infinity; for(let p=0;p<NP;p++) if(binary[p]&&energy[p]>bv){bv=energy[p];b=p;} return b; };
+  const largest =()=>{ let b=-1,bv=Infinity;  for(let p=0;p<NP;p++) if(!binary[p]&&energy[p]<bv){bv=energy[p];b=p;} return b; };
+  // deterministic init: ~10% ones via a small LCG so the pattern is reproducible
+  let seed=1234567; const rnd=()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
+  const idxs=[...Array(NP).keys()]; const initOnes=Math.round(NP*0.1);
+  for(let i=0;i<initOnes;i++){ const j=i+Math.floor(rnd()*(NP-i)); [idxs[i],idxs[j]]=[idxs[j],idxs[i]]; binary[idxs[i]]=1; addEnergy(idxs[i],1); }
+  // phase 1: relax initial pattern until swapping the tightest cluster into the largest void is a no-op
+  for(;;){ const c=tightest(); binary[c]=0; addEnergy(c,-1); const v=largest();
+    if(v===c){ binary[c]=1; addEnergy(c,1); break; } binary[v]=1; addEnergy(v,1); }
+  const rank=new Int32Array(NP).fill(-1);
+  const count=initOnes;
+  // phase 2: remove ones one by one, ranking downward from count-1
+  const b2=binary.slice(), e2=energy.slice();
+  const tightest2=()=>{ let b=-1,bv=-Infinity; for(let p=0;p<NP;p++) if(b2[p]&&e2[p]>bv){bv=e2[p];b=p;} return b; };
+  const addE2=(p,sign)=>{ const px=p%N,py=(p/N)|0; for(const[dx,dy,wt]of kernel){ const x=(px+dx+N)%N,y=(py+dy+N)%N; e2[y*N+x]+=sign*wt; } };
+  for(let i=count-1;i>=0;i--){ const c=tightest2(); b2[c]=0; addE2(c,-1); rank[c]=i; }
+  // phase 3: add ones into the voids, ranking upward from count
+  const b3=binary.slice(), e3=energy.slice();
+  const largest3=()=>{ let b=-1,bv=Infinity; for(let p=0;p<NP;p++) if(!b3[p]&&e3[p]<bv){bv=e3[p];b=p;} return b; };
+  const addE3=(p,sign)=>{ const px=p%N,py=(p/N)|0; for(const[dx,dy,wt]of kernel){ const x=(px+dx+N)%N,y=(py+dy+N)%N; e3[y*N+x]+=sign*wt; } };
+  for(let i=count;i<NP;i++){ const v=largest3(); b3[v]=1; addE3(v,1); rank[v]=i; }
+  const matrix=[];
+  for(let y=0;y<N;y++){ const row=[]; for(let x=0;x<N;x++) row.push(rank[y*N+x]); matrix.push(row); }
+  _blueNoise={ matrix, size:N, max:NP };
+  return _blueNoise;
+}
+
 // ─── RENDER: DITHER ──────────────────────────────────────────────────────────
 function renderDither({img,w,h,px,palette,algo,getY}) {
   const sw = Math.max(1,Math.round(w/px)), sh = Math.max(1,Math.round(h/px));
@@ -91,8 +136,8 @@ function renderDither({img,w,h,px,palette,algo,getY}) {
     }
     return lums.length-1;
   };
-  if (algo==='bayer'||algo==='cross') {
-    const{matrix,size,max}=ORDERED_PATTERNS[algo];
+  if (algo==='bayer'||algo==='cross'||algo==='bluenoise') {
+    const{matrix,size,max}=algo==='bluenoise'?getBlueNoise():ORDERED_PATTERNS[algo];
     for (let y=0;y<sh;y++) for (let x=0;x<sw;x++) {
       const i=(y*sw+x)*4;
       const Y=getY(data[i],data[i+1],data[i+2]);
@@ -116,10 +161,11 @@ function renderDither({img,w,h,px,palette,algo,getY}) {
         if(x-1>=0&&y+1<sh)work[i+sw-1]+=e; if(y+1<sh)work[i+sw]+=e;
         if(x+1<sw&&y+1<sh)work[i+sw+1]+=e; if(y+2<sh)work[i+sw*2]+=e;
       } else {
-        if(x+1<sw)work[i+1]+=err*7/16;
-        if(x-1>=0&&y+1<sh)work[i+sw-1]+=err*3/16;
-        if(y+1<sh)work[i+sw]+=err*5/16;
-        if(x+1<sw&&y+1<sh)work[i+sw+1]+=err/16;
+        const {div,taps}=DIFFUSION_KERNELS[algo]||DIFFUSION_KERNELS.diffusion;
+        for(const [dx,dy,wt] of taps){
+          const nx=x+dx, ny=y+dy;
+          if(nx>=0&&nx<sw&&ny<sh) work[ny*sw+nx]+=err*wt/div;
+        }
       }
     }
   }
@@ -620,8 +666,8 @@ export default function Phosphor() {
 
             {mode==='dither' && <div key="dither" className="anim-fadein flex flex-col gap-2.5">
               <Panel label="PATTERN">
-                <div className="grid grid-cols-2 gap-1.5">
-                  {[['bayer','GRID'],['cross','CROSS'],['diffusion','GRAIN'],['atkinson','ATKINSON']].map(([v,l])=>(
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[['bayer','GRID'],['cross','CROSS'],['diffusion','GRAIN'],['atkinson','ATKINSON'],['stucki','STUCKI'],['sierra','SIERRA'],['bluenoise','BLUE NOISE']].map(([v,l])=>(
                     <button key={v} onClick={()=>setAlgo(v)} className={`btn ${algo===v?'on':''}`}>{l}</button>
                   ))}
                 </div>
