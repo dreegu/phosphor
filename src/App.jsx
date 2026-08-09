@@ -720,10 +720,20 @@ export default function Phosphor() {
             <Shuffle size={13}/>
           </button>
         </div>
-        <a href="https://rodrigosilva.design" target="_blank" rel="noopener noreferrer"
-          className="text-xs text-zinc-600 hover:text-amber-400 transition-colors">
-          by rodrigosilva.design
-        </a>
+        <div className="flex items-center gap-2">
+          <button onClick={()=>setTransparentBg(v=>!v)} title="export with a transparent background"
+            className={`tap-target text-xs px-2.5 py-1.5 border transition-colors ${transparentBg?'border-amber-600 text-amber-200 bg-amber-950/40':'border-zinc-700 text-zinc-500 hover:text-amber-300 hover:border-amber-600'}`}>
+            transparent
+          </button>
+          <label className="tap-target flex items-center gap-1.5 text-xs text-zinc-400 hover:text-amber-300 cursor-pointer border border-zinc-700 hover:border-amber-600 px-2.5 py-1.5 tracking-wide transition-colors">
+            <Upload size={12}/> UPLOAD IMAGE
+            <input type="file" accept="image/*" className="hidden" onChange={handleFile}/>
+          </label>
+          <button onClick={handleDownload}
+            className="tap-target flex items-center gap-1.5 text-xs text-amber-100 border border-amber-600 hover:bg-amber-950 px-2.5 py-1.5 tracking-wide transition-colors">
+            <Download size={12}/> EXPORT
+          </button>
+        </div>
       </div>
 
 
@@ -739,7 +749,7 @@ export default function Phosphor() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between px-3 py-2 border-t border-zinc-800 shrink-0 gap-2">
+            <div className="relative flex items-center px-3 py-2 border-t border-zinc-800 shrink-0">
               <div className="flex items-center gap-1.5">
                 <button onClick={()=>setZoom(z=>Math.max(0.25,+(z-0.25).toFixed(2)))}
                   className="icon-btn w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
@@ -752,20 +762,10 @@ export default function Phosphor() {
                 </button>
                 <button onClick={()=>setZoom(1)} className="text-xs text-zinc-600 hover:text-amber-400 ml-1">reset</button>
               </div>
-              <div className="flex items-center gap-2">
-                <label className="tap-target text-xs text-zinc-600 hover:text-amber-400 cursor-pointer border border-zinc-700 hover:border-amber-600 px-2 py-1">
-                  replace image
-                  <input type="file" accept="image/*" className="hidden" onChange={handleFile}/>
-                </label>
-                <button onClick={()=>setTransparentBg(v=>!v)} title="export with a transparent background"
-                  className={`tap-target text-xs px-2 py-1 border tracking-wider transition-colors ${transparentBg?'border-amber-600 text-amber-200 bg-amber-950/40':'border-zinc-700 text-zinc-600 hover:text-amber-400 hover:border-amber-600'}`}>
-                  transparent
-                </button>
-                <button onClick={handleDownload}
-                  className="tap-target flex items-center gap-1.5 px-3 py-1 border border-amber-900 text-amber-100 hover:bg-amber-950 text-xs tracking-wider">
-                  <Download size={11}/> export
-                </button>
-              </div>
+              <a href="https://rodrigosilva.design" target="_blank" rel="noopener noreferrer"
+                className="absolute left-1/2 -translate-x-1/2 text-xs text-zinc-600 hover:text-amber-400 transition-colors">
+                by rodrigosilva.design
+              </a>
             </div>
           </div>
 
@@ -774,7 +774,7 @@ export default function Phosphor() {
 
             {/* TAB BAR */}
             <div className="flex shrink-0 border-b border-zinc-800">
-              {[['presets','Presets'],['edit','Edit']].map(([v,l])=>(
+              {[['presets','PRESETS'],['edit','EDIT']].map(([v,l])=>(
                 <button key={v} onClick={()=>setActiveTab(v)}
                   className={`tap-target flex-1 py-2.5 text-xs font-medium tracking-wide transition-colors ${activeTab===v?'text-amber-100 border-b-2 border-amber-600':'text-zinc-500 hover:text-zinc-300 border-b-2 border-transparent'}`}>{l}</button>
               ))}
@@ -831,11 +831,7 @@ export default function Phosphor() {
             {activeTab==='edit' && <div className="anim-fadein flex flex-col">
 
             <Panel label="Render mode">
-              <div className="flex gap-1.5">
-                {[['dither','DITHER'],['ascii','ASCII'],['halftone','HALFTONE']].map(([v,l])=>(
-                  <button key={v} onClick={()=>handleModeChange(v)} className={`btn flex-1 ${mode===v?'on':''}`}>{l}</button>
-                ))}
-              </div>
+              <Segmented options={[['dither','Dither'],['ascii','Ascii'],['halftone','Halftone']]} value={mode} onChange={handleModeChange}/>
             </Panel>
 
             <Panel label="Tone">
@@ -845,12 +841,8 @@ export default function Phosphor() {
             </Panel>
 
             <Panel label="Definition">
-              <div className="grid grid-cols-3 gap-1.5">
-                {[[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>(
-                  <button key={v} onClick={()=>setDefinition(v)} className={`btn ${definition===v?'on':''}`}>{l}</button>
-                ))}
-              </div>
-              <div className="text-xs text-zinc-600 mt-1">higher = sharper edges &amp; crisper characters, same composition</div>
+              <Segmented options={[[1,'1×'],[2,'2×'],[4,'4×']]} value={definition} onChange={setDefinition}/>
+              <div className="text-xs text-zinc-600">higher = sharper edges &amp; crisper characters, same composition</div>
             </Panel>
 
             {mode==='dither' && <div key="dither" className="anim-fadein flex flex-col">
@@ -999,16 +991,34 @@ function NumSlider({label,value,min,max,step,onChange,hint,disabled}) {
   };
   return (
     <div className={disabled?'opacity-40':''}>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs text-zinc-500">{label}</span>
+      <div className="text-xs text-zinc-500 mb-1.5">{label}</div>
+      <div className="flex items-center gap-2.5">
         {hint
-          ? <span className="text-xs text-zinc-600">{hint}</span>
+          ? <span className="text-xs text-zinc-600 shrink-0 w-14">{hint}</span>
           : <input type="number" value={value} min={min} max={max} step={step}
-              disabled={disabled} onChange={handleNum}/>
+              disabled={disabled} onChange={handleNum} className="shrink-0"/>
         }
+        <input type="range" min={min} max={max} step={step} value={value} disabled={disabled}
+          onChange={e=>onChange(parseFloat(e.target.value))} className="flex-1"/>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value} disabled={disabled}
-        onChange={e=>onChange(parseFloat(e.target.value))}/>
+    </div>
+  );
+}
+
+// Connected segmented pill: gap between cells, rounded only on the outer edges.
+function Segmented({options,value,onChange}) {
+  return (
+    <div className="flex gap-1">
+      {options.map(([v,l],i)=>{
+        const on=value===v;
+        const edge=i===0?'rounded-l':i===options.length-1?'rounded-r':'';
+        return (
+          <button key={v} onClick={()=>onChange(v)}
+            className={`tap-target flex-1 py-1.5 text-xs text-center transition-colors ${edge} ${on?'bg-amber-950/50 text-amber-100 border border-amber-600':'border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600'}`}>
+            {l}
+          </button>
+        );
+      })}
     </div>
   );
 }
