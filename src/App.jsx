@@ -54,14 +54,16 @@ const LOOK_BASE = { contrast:0, midtones:1, highlights:1, phosphorGlow:0, lumina
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
 const DETAIL_RANGE = { dither:[0.5,16], ascii:[4,20], halftone:[1,16] };
+// Geometric mapping: equal ratio per step, so dragging feels even across the whole range.
 function detailToSize(mode, detail){
   const [min,max] = DETAIL_RANGE[mode] || DETAIL_RANGE.halftone;
-  const d = Math.max(0, Math.min(100, detail));
-  return max - (d/100)*(max-min);
+  const d = Math.max(0, Math.min(100, detail))/100;
+  return max * Math.pow(min/max, d);
 }
 function sizeToDetail(mode, size){
   const [min,max] = DETAIL_RANGE[mode] || DETAIL_RANGE.halftone;
-  return Math.round(Math.max(0, Math.min(100, (max-size)/(max-min)*100)));
+  const s = Math.max(min, Math.min(max, size));
+  return Math.round(Math.max(0, Math.min(100, 100*Math.log(s/max)/Math.log(min/max))));
 }
 
 // Curated one-click looks: palette + mode + grain + atmosphere combinations.
@@ -382,7 +384,7 @@ export default function Phosphor() {
     PALETTE_PRESETS.amber.colors.map((c,i,a) => mkEntry(c, a.length>1?i/(a.length-1):0.5))
   );
   const [algo, setAlgo] = useState('bayer');
-  const [detail, setDetail] = useState(83);   // unified 0-100, higher = more detail
+  const [detail, setDetail] = useState(55);   // unified 0-100, higher = more detail
   const [resLock, setResLock] = useState(false);
   const [effectivePx, setEffectivePx] = useState(5);
   const [definition, setDefinition] = useState(1);
