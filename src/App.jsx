@@ -409,9 +409,11 @@ export default function Phosphor() {
   const [chromaShift, setChromaShift] = useState(0);
 
   const [transparentBg, setTransparentBg] = useState(false);
+  const [format, setFormat] = useState('png');
   const [outputUrl, setOutputUrl] = useState(null);
   const [shared, setShared] = useState(false);
   const imgRef = useRef(null);
+  const outputCanvasRef = useRef(null);
   const ctrlRef = useRef(null);
   const zoomAreaRef = useRef(null);
 
@@ -651,6 +653,7 @@ export default function Phosphor() {
       ctx.putImageData(id,0,0);
     }
 
+    outputCanvasRef.current = canvas;
     setOutputUrl(canvas.toDataURL('image/png'));
   }, [mode,palette,algo,detail,definition,asciiRamp,asciiFg,asciiBg,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
 
@@ -664,19 +667,35 @@ export default function Phosphor() {
   useEffect(() => { if (imgRef.current) process(); }, [process]);
 
   const handleDownload = async () => {
-    if (!outputUrl) return;
+    const canvas = outputCanvasRef.current;
+    if (!canvas) return;
     const now = new Date();
     const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
       .map(n => String(n).padStart(2, '0')).join('');
     const base = fileName
       ? fileName.replace(/\.[^.]+$/, '').replace(/[^a-z0-9]/gi, '_').toLowerCase()
       : 'phosphor';
-    const filename = `${base}_${mode}_${time}.png`;
+    const ext = format==='jpeg' ? 'jpg' : 'png';
+    const mime = format==='jpeg' ? 'image/jpeg' : 'image/png';
+    const filename = `${base}_${mode}_${time}.${ext}`;
+
+    let url;
+    if (format==='jpeg') {
+      // JPEG has no alpha — flatten onto white so transparency doesn't turn black
+      const flat = document.createElement('canvas');
+      flat.width = canvas.width; flat.height = canvas.height;
+      const fx = flat.getContext('2d');
+      fx.fillStyle = '#ffffff'; fx.fillRect(0,0,flat.width,flat.height);
+      fx.drawImage(canvas,0,0);
+      url = flat.toDataURL(mime, 0.92);
+    } else {
+      url = canvas.toDataURL(mime);
+    }
 
     if (navigator.canShare) {
       try {
-        const blob = await (await fetch(outputUrl)).blob();
-        const file = new File([blob], filename, { type: 'image/png' });
+        const blob = await (await fetch(url)).blob();
+        const file = new File([blob], filename, { type: mime });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file] });
           return;
@@ -688,7 +707,7 @@ export default function Phosphor() {
 
     const a = document.createElement('a');
     a.download = filename;
-    a.href = outputUrl; a.click();
+    a.href = url; a.click();
   };
 
   const updateColor  = (id,hex) => setPalette(p=>p.map(e=>e.id===id?{...e,color:hex}:e));
@@ -735,18 +754,12 @@ export default function Phosphor() {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={()=>setTransparentBg(v=>!v)} title="export with a transparent background"
-            className={`tap-target text-xs px-2.5 py-1.5 border transition-colors ${transparentBg?'border-amber-600 text-amber-200 bg-amber-950/40':'border-zinc-700 text-zinc-500 hover:text-amber-300 hover:border-amber-600'}`}>
-            transparent
-          </button>
           <label className="tap-target flex items-center gap-1.5 text-xs text-zinc-400 hover:text-amber-300 cursor-pointer border border-zinc-700 hover:border-amber-600 px-2.5 py-1.5 tracking-wide transition-colors">
             <Upload size={12}/> UPLOAD IMAGE
             <input type="file" accept="image/*" className="hidden" onChange={handleFile}/>
           </label>
-          <button onClick={handleDownload}
-            className="tap-target flex items-center gap-1.5 text-xs text-amber-100 border border-amber-600 hover:bg-amber-950 px-2.5 py-1.5 tracking-wide transition-colors">
-            <Download size={12}/> EXPORT
-          </button>
+          <ExportMenu format={format} setFormat={setFormat} definition={definition} setDefinition={setDefinition}
+            transparentBg={transparentBg} setTransparentBg={setTransparentBg} onDownload={handleDownload}/>
         </div>
       </div>
 
@@ -875,11 +888,6 @@ export default function Phosphor() {
               <NumSlider label="Contrast"   value={contrast}   min={-100} max={100} step={1}    onChange={setContrast}/>
               <NumSlider label="Midtones"   value={midtones}   min={0.3}  max={2.5} step={0.05} onChange={setMidtones}/>
               <NumSlider label="Highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
-            </Panel>
-
-            <Panel label="Definition">
-              <Segmented options={[[1,'1×'],[2,'2×'],[4,'4×']]} value={definition} onChange={setDefinition}/>
-              <div className="text-xs text-zinc-600">higher = sharper edges &amp; crisper characters, same composition</div>
             </Panel>
 
             {mode==='dither' && <div key="dither" className="anim-fadein flex flex-col">
@@ -1065,6 +1073,44 @@ function Segmented({options,value,onChange}) {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// Export button with an options popover: format, resolution, transparency, then Download.
+function ExportMenu({format,setFormat,definition,setDefinition,transparentBg,setTransparentBg,onDownload}) {
+  const [open,setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if(!open) return;
+    const onDoc = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown',onDoc);
+    return () => document.removeEventListener('mousedown',onDoc);
+  },[open]);
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={()=>setOpen(o=>!o)}
+        className="tap-target flex items-center gap-1.5 text-xs text-amber-100 border border-amber-600 hover:bg-amber-950 px-2.5 py-1.5 tracking-wide transition-colors">
+        <Download size={12}/> EXPORT <ChevronDown size={12} className={`transition-transform ${open?'rotate-180':''}`}/>
+      </button>
+      {open &&
+        <div className="absolute right-0 mt-1 w-60 z-30 border border-zinc-700 bg-zinc-900 shadow-xl p-4 flex flex-col gap-3">
+          <Field label="Format">
+            <Segmented options={[['png','PNG'],['jpeg','JPEG']]} value={format} onChange={setFormat}/>
+          </Field>
+          <Field label="Resolution">
+            <Segmented options={[[1,'1×'],[2,'2×'],[4,'4×']]} value={definition} onChange={setDefinition}/>
+          </Field>
+          {format==='png' &&
+            <label className="flex items-center justify-between text-xs text-zinc-400 cursor-pointer">
+              <span>Transparent background</span>
+              <input type="checkbox" checked={transparentBg} onChange={e=>setTransparentBg(e.target.checked)} className="accent-amber-600"/>
+            </label>}
+          <button onClick={()=>{ onDownload(); setOpen(false); }}
+            className="tap-target flex items-center justify-center gap-2 py-2 border border-amber-600 bg-amber-950/40 text-amber-100 hover:bg-amber-900 text-xs tracking-wide transition-colors">
+            <Download size={12}/> Download
+          </button>
+        </div>}
     </div>
   );
 }
