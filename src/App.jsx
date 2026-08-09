@@ -774,16 +774,16 @@ export default function Phosphor() {
 
             {/* TAB BAR */}
             <div className="flex shrink-0 border-b border-zinc-800">
-              {[['presets','PRESETS'],['edit','EDIT']].map(([v,l])=>(
+              {[['presets','Presets'],['edit','Edit']].map(([v,l])=>(
                 <button key={v} onClick={()=>setActiveTab(v)}
-                  className={`tap-target flex-1 py-2.5 text-xs tracking-widest transition-colors ${activeTab===v?'text-amber-100 border-b-2 border-amber-600':'text-zinc-500 hover:text-zinc-300 border-b-2 border-transparent'}`}>{l}</button>
+                  className={`tap-target flex-1 py-2.5 text-xs font-medium tracking-wide transition-colors ${activeTab===v?'text-amber-100 border-b-2 border-amber-600':'text-zinc-500 hover:text-zinc-300 border-b-2 border-transparent'}`}>{l}</button>
               ))}
             </div>
 
-            <div ref={ctrlRef} className="ctrl flex-1 overflow-y-auto flex flex-col gap-2.5 p-3">
+            <div ref={ctrlRef} className="ctrl flex-1 overflow-y-auto flex flex-col">
 
-            {activeTab==='presets' && <div className="anim-fadein flex flex-col gap-2.5">
-              <Panel label="LOOKS">
+            {activeTab==='presets' && <div className="anim-fadein flex flex-col">
+              <Panel label="Looks">
                 <div className="grid grid-cols-3 gap-1.5">
                   {LOOK_PRESETS.map(p=>{
                     const on=activeLook===p.name;
@@ -800,7 +800,7 @@ export default function Phosphor() {
                   );})}
                 </div>
               </Panel>
-              <Panel label="DEVICES">
+              <Panel label="Devices">
                 <div className="grid grid-cols-2 gap-1.5">
                   {Object.entries(SOURCE_DEVICES).map(([key,dev])=>{
                     const Icon=DEVICE_ICONS[key]||Monitor;
@@ -825,12 +825,12 @@ export default function Phosphor() {
                   </>
                 )}
               </Panel>
-              <div className="text-xs text-zinc-600 leading-relaxed px-1">Pick a look or device, then fine-tune it in the EDIT tab.</div>
+              <div className="text-xs text-zinc-600 leading-relaxed px-4 py-3">Pick a look or device, then fine-tune it in the Edit tab.</div>
             </div>}
 
-            {activeTab==='edit' && <div className="anim-fadein flex flex-col gap-2.5">
+            {activeTab==='edit' && <div className="anim-fadein flex flex-col">
 
-            <Panel label="RENDER MODE">
+            <Panel label="Render mode">
               <div className="flex gap-1.5">
                 {[['dither','DITHER'],['ascii','ASCII'],['halftone','HALFTONE']].map(([v,l])=>(
                   <button key={v} onClick={()=>handleModeChange(v)} className={`btn flex-1 ${mode===v?'on':''}`}>{l}</button>
@@ -838,13 +838,13 @@ export default function Phosphor() {
               </div>
             </Panel>
 
-            <Panel label="TONE">
-              <NumSlider label="contrast"   value={contrast}   min={-100} max={100} step={1}    onChange={setContrast}/>
-              <NumSlider label="midtones"   value={midtones}   min={0.3}  max={2.5} step={0.05} onChange={setMidtones}/>
-              <NumSlider label="highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
+            <Panel label="Tone">
+              <NumSlider label="Contrast"   value={contrast}   min={-100} max={100} step={1}    onChange={setContrast}/>
+              <NumSlider label="Midtones"   value={midtones}   min={0.3}  max={2.5} step={0.05} onChange={setMidtones}/>
+              <NumSlider label="Highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
             </Panel>
 
-            <Panel label="DEFINITION">
+            <Panel label="Definition">
               <div className="grid grid-cols-3 gap-1.5">
                 {[[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>(
                   <button key={v} onClick={()=>setDefinition(v)} className={`btn ${definition===v?'on':''}`}>{l}</button>
@@ -853,20 +853,20 @@ export default function Phosphor() {
               <div className="text-xs text-zinc-600 mt-1">higher = sharper edges &amp; crisper characters, same composition</div>
             </Panel>
 
-            {mode==='dither' && <div key="dither" className="anim-fadein flex flex-col gap-2.5">
-              <Panel label="PATTERN">
+            {mode==='dither' && <div key="dither" className="anim-fadein flex flex-col">
+              <Panel label="Pattern">
                 <div className="grid grid-cols-3 gap-1.5">
                   {[['bayer','GRID'],['cross','CROSS'],['diffusion','GRAIN'],['atkinson','ATKINSON'],['stucki','STUCKI'],['sierra','SIERRA'],['bluenoise','BLUE NOISE']].map(([v,l])=>(
                     <button key={v} onClick={()=>setAlgo(v)} className={`btn ${algo===v?'on':''}`}>{l}</button>
                   ))}
                 </div>
               </Panel>
-              <Panel label="DETAIL">
-                <NumSlider label="dot size" value={pixelSize} min={0.5} max={16} step={0.5}
+              <Panel label="Detail">
+                <NumSlider label="Dot size" value={pixelSize} min={0.5} max={16} step={0.5}
                   onChange={setPixelSize} disabled={resLock&&!!sourceDevice}
                   hint={resLock&&sourceDevice?`${effectivePx}px locked`:undefined}/>
               </Panel>
-              <Panel label="PALETTE">
+              <Panel label="Palette">
                 <div className="flex gap-1 mb-1 flex-wrap">
                   {Object.entries(PALETTE_PRESETS).map(([k,p])=>(
                     <button key={k} onClick={()=>applyPalettePreset(k)}
@@ -907,8 +907,8 @@ export default function Phosphor() {
               </Panel>
             </div>}
 
-            {mode==='ascii' && <div key="ascii" className="anim-fadein flex flex-col gap-2.5">
-              <Panel label="CHARACTER SET">
+            {mode==='ascii' && <div key="ascii" className="anim-fadein flex flex-col">
+              <Panel label="Character set">
                 <div className="grid grid-cols-2 gap-1.5">
                   {Object.entries(ASCII_RAMPS).map(([k,v])=>(
                     <button key={k} onClick={()=>setAsciiRamp(k)} className={`btn ${asciiRamp===k?'on':''}`}>{v.label}</button>
@@ -916,44 +916,44 @@ export default function Phosphor() {
                 </div>
                 <div className="mt-1 text-xs text-zinc-600 break-all">{ASCII_RAMPS[asciiRamp].chars}</div>
               </Panel>
-              <Panel label="APPEARANCE">
+              <Panel label="Appearance">
                 <div className="flex items-center gap-4">
-                  <ColorSwatch label="text" value={asciiFg} onChange={setAsciiFg}/>
-                  <ColorSwatch label="bg"   value={asciiBg} onChange={setAsciiBg}/>
+                  <ColorSwatch label="Text" value={asciiFg} onChange={setAsciiFg}/>
+                  <ColorSwatch label="Bg"   value={asciiBg} onChange={setAsciiBg}/>
                   <InvertButton onClick={invertAscii} title="swap text and background"/>
                 </div>
-                <NumSlider label="cell size" value={asciiSize} min={4} max={20} step={1} onChange={setAsciiSize}/>
+                <NumSlider label="Cell size" value={asciiSize} min={4} max={20} step={1} onChange={setAsciiSize}/>
               </Panel>
             </div>}
 
-            {mode==='halftone' && <div key="halftone" className="anim-fadein flex flex-col gap-2.5">
-              <Panel label="DOT SHAPE">
+            {mode==='halftone' && <div key="halftone" className="anim-fadein flex flex-col">
+              <Panel label="Dot shape">
                 <div className="grid grid-cols-2 gap-1.5">
                   {Object.entries(HT_SHAPES).map(([k,v])=>(
                     <button key={k} onClick={()=>setHtShape(k)} className={`btn ${htShape===k?'on':''}`}>{v}</button>
                   ))}
                 </div>
               </Panel>
-              <Panel label="PRINT">
+              <Panel label="Print">
                 <div className="flex items-center gap-4 mb-1">
-                  <ColorSwatch label="ink"   value={htInk}   onChange={setHtInk}/>
-                  <ColorSwatch label="paper" value={htPaper} onChange={setHtPaper}/>
+                  <ColorSwatch label="Ink"   value={htInk}   onChange={setHtInk}/>
+                  <ColorSwatch label="Paper" value={htPaper} onChange={setHtPaper}/>
                   <InvertButton onClick={invertHalftone} title="swap ink and paper"/>
                 </div>
-                <NumSlider label="dot size"     value={htSize}  min={1}  max={16} step={0.5} onChange={setHtSize}/>
-                <NumSlider label="screen angle" value={htAngle} min={0}  max={90} step={1}   onChange={setHtAngle}/>
+                <NumSlider label="Dot size"     value={htSize}  min={1}  max={16} step={0.5} onChange={setHtSize}/>
+                <NumSlider label="Screen angle" value={htAngle} min={0}  max={90} step={1}   onChange={setHtAngle}/>
               </Panel>
             </div>}
 
-            <Panel label="ATMOSPHERE">
-              <NumSlider label="phosphor glow"  value={phosphorGlow}  min={0} max={100} step={1} onChange={setPhosphorGlow}/>
-              <NumSlider label="luminance lift" value={luminanceLift} min={0} max={100} step={1} onChange={setLuminanceLift}/>
-              <NumSlider label="scanlines" value={scanlines} min={0} max={100} step={1} onChange={setScanlines}/>
-              <NumSlider label="noise"     value={noise}     min={0} max={100} step={1} onChange={setNoise}/>
-              <NumSlider label="chroma shift" value={chromaShift} min={0} max={20} step={0.5} onChange={setChromaShift}/>
+            <Panel label="Atmosphere">
+              <NumSlider label="Phosphor glow"  value={phosphorGlow}  min={0} max={100} step={1} onChange={setPhosphorGlow}/>
+              <NumSlider label="Luminance lift" value={luminanceLift} min={0} max={100} step={1} onChange={setLuminanceLift}/>
+              <NumSlider label="Scanlines" value={scanlines} min={0} max={100} step={1} onChange={setScanlines}/>
+              <NumSlider label="Noise"     value={noise}     min={0} max={100} step={1} onChange={setNoise}/>
+              <NumSlider label="Chroma shift" value={chromaShift} min={0} max={20} step={0.5} onChange={setChromaShift}/>
             </Panel>
 
-            <Panel label="SETTINGS LINK">
+            <Panel label="Settings link">
               <button onClick={shareSettings}
                 className="tap-target flex items-center justify-center gap-2 py-2 border border-zinc-800 text-zinc-400 hover:text-amber-400 hover:border-amber-800 text-xs tracking-wider transition-colors">
                 <Share2 size={11}/> {shared?'link copied!':'copy settings link'}
@@ -982,12 +982,12 @@ function InvertButton({onClick,title}) {
 
 function Panel({label,children,action}) {
   return (
-    <div className="pb-3 border-b border-zinc-800/80">
-      <div className="flex items-center justify-between mb-2.5">
-        <div className="text-xs text-zinc-400 tracking-widest">{label}</div>
+    <div className="border-b border-zinc-800 px-4 py-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-xs font-medium tracking-wide text-zinc-300">{label}</div>
         {action}
       </div>
-      <div className="flex flex-col gap-2">{children}</div>
+      <div className="flex flex-col gap-3">{children}</div>
     </div>
   );
 }
