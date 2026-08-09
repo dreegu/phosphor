@@ -51,6 +51,19 @@ const ap = cols => cols.map((color,i,a)=>({ color, anchor: a.length>1 ? i/(a.len
 // Baseline every look resets to, so a preset only declares what it changes.
 const LOOK_BASE = { contrast:0, midtones:1, highlights:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, definition:2 };
 
+// Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
+// cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
+const DETAIL_RANGE = { dither:[0.5,16], ascii:[4,20], halftone:[1,16] };
+function detailToSize(mode, detail){
+  const [min,max] = DETAIL_RANGE[mode] || DETAIL_RANGE.halftone;
+  const d = Math.max(0, Math.min(100, detail));
+  return max - (d/100)*(max-min);
+}
+function sizeToDetail(mode, size){
+  const [min,max] = DETAIL_RANGE[mode] || DETAIL_RANGE.halftone;
+  return Math.round(Math.max(0, Math.min(100, (max-size)/(max-min)*100)));
+}
+
 // Curated one-click looks: palette + mode + grain + atmosphere combinations.
 const LOOK_PRESETS = [
   { name:'AMBER CRT', settings:{ mode:'dither', algo:'bayer', pixelSize:4, palette:ap(['#1a1410','#5c4a32','#a8865a','#f4e4c1']), contrast:12, highlights:1.1, phosphorGlow:35, luminanceLift:10, scanlines:45, chromaShift:1.5 } },
@@ -369,7 +382,7 @@ export default function Phosphor() {
     PALETTE_PRESETS.amber.colors.map((c,i,a) => mkEntry(c, a.length>1?i/(a.length-1):0.5))
   );
   const [algo, setAlgo] = useState('bayer');
-  const [pixelSize, setPixelSize] = useState(5);
+  const [detail, setDetail] = useState(83);   // unified 0-100, higher = more detail
   const [resLock, setResLock] = useState(false);
   const [effectivePx, setEffectivePx] = useState(5);
   const [definition, setDefinition] = useState(1);
@@ -377,10 +390,8 @@ export default function Phosphor() {
   const [asciiRamp, setAsciiRamp] = useState('standard');
   const [asciiFg, setAsciiFg] = useState('#00ff41');
   const [asciiBg, setAsciiBg] = useState('#000000');
-  const [asciiSize, setAsciiSize] = useState(8);
 
   const [htShape, setHtShape] = useState('circle');
-  const [htSize, setHtSize] = useState(3.5);
   const [htAngle, setHtAngle] = useState(45);
   const [htInk, setHtInk] = useState('#2a2420');
   const [htPaper, setHtPaper] = useState('#f2ede4');
@@ -469,9 +480,9 @@ export default function Phosphor() {
     if(d.asciiRamp) setAsciiRamp(d.asciiRamp);
     if(d.asciiFg) setAsciiFg(d.asciiFg);
     if(d.asciiBg) setAsciiBg(d.asciiBg);
-    if(d.asciiSize) setAsciiSize(d.asciiSize);
+    if(d.asciiSize) setDetail(sizeToDetail('ascii',d.asciiSize));
     if(d.htShape) setHtShape(d.htShape);
-    if(d.htSize) setHtSize(d.htSize);
+    if(d.htSize) setDetail(sizeToDetail('halftone',d.htSize));
     if(d.htAngle) setHtAngle(d.htAngle);
     if(d.htInk) setHtInk(d.htInk);
     if(d.htPaper) setHtPaper(d.htPaper);
@@ -495,15 +506,17 @@ export default function Phosphor() {
   const applyLoadedSettings = (s) => {
     if(s.mode!==undefined) setMode(s.mode);
     if(s.algo!==undefined) setAlgo(s.algo);
-    if(s.pixelSize!==undefined) setPixelSize(s.pixelSize);
     if(s.definition!==undefined) setDefinition(s.definition);
+    // Unified detail, with backward-compat for older presets/links that stored raw sizes.
+    if(s.detail!==undefined) setDetail(s.detail);
+    else if(s.pixelSize!==undefined) setDetail(sizeToDetail('dither',s.pixelSize));
+    else if(s.asciiSize!==undefined) setDetail(sizeToDetail('ascii',s.asciiSize));
+    else if(s.htSize!==undefined) setDetail(sizeToDetail('halftone',s.htSize));
     if(s.palette!==undefined) setPalette(s.palette.map(p=>mkEntry(p.color,p.anchor)));
     if(s.asciiRamp!==undefined) setAsciiRamp(s.asciiRamp);
     if(s.asciiFg!==undefined) setAsciiFg(s.asciiFg);
     if(s.asciiBg!==undefined) setAsciiBg(s.asciiBg);
-    if(s.asciiSize!==undefined) setAsciiSize(s.asciiSize);
     if(s.htShape!==undefined) setHtShape(s.htShape);
-    if(s.htSize!==undefined) setHtSize(s.htSize);
     if(s.htAngle!==undefined) setHtAngle(s.htAngle);
     if(s.htInk!==undefined) setHtInk(s.htInk);
     if(s.htPaper!==undefined) setHtPaper(s.htPaper);
@@ -526,12 +539,12 @@ export default function Phosphor() {
   };
 
   const getSettings = useCallback(() => ({
-    mode, algo, pixelSize, definition,
+    mode, algo, detail, definition,
     palette: palette.map(({color,anchor})=>({color,anchor})),
-    asciiRamp, asciiFg, asciiBg, asciiSize,
-    htShape, htSize, htAngle, htInk, htPaper,
+    asciiRamp, asciiFg, asciiBg,
+    htShape, htAngle, htInk, htPaper,
     contrast, midtones, highlights, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
-  }), [mode,algo,pixelSize,definition,palette,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
+  }), [mode,algo,detail,definition,palette,asciiRamp,asciiFg,asciiBg,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
 
   const shareSettings = () => {
     const packed = LZString.compressToEncodedURIComponent(JSON.stringify(getSettings()));
@@ -602,15 +615,15 @@ export default function Phosphor() {
     };
 
     const dev=sourceDevice?SOURCE_DEVICES[sourceDevice]:null;
-    // native res-lock maps to w/dev.width (already scales with D); manual sizes scale by D so the composition is constant
-    const px=resLock&&dev?.width?Math.max(1,Math.round(w/dev.width)):Math.max(1,pixelSize*D);
+    // Detail -> mode size; native res-lock overrides dither to the device grid. D (definition) supersamples.
+    const px=resLock&&dev?.width?Math.max(1,Math.round(w/dev.width)):Math.max(1,detailToSize('dither',detail)*D);
     setEffectivePx(Math.max(1,Math.round(px/D)));
 
     let canvas;
     const tp=transparentBg;
     if(mode==='dither') canvas=renderDither({img,w,h,px,palette,algo,getY,transparent:tp});
-    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:asciiSize*D,getY,transparent:tp});
-    else if(mode==='halftone') canvas=renderHalftone({img,w,h,shape:htShape,dotSize:htSize*D,angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
+    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:detailToSize('ascii',detail)*D,getY,transparent:tp});
+    else if(mode==='halftone') canvas=renderHalftone({img,w,h,shape:htShape,dotSize:detailToSize('halftone',detail)*D,angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
     if (!canvas) return;
 
     const darkColor=mode==='dither'
@@ -637,7 +650,7 @@ export default function Phosphor() {
     }
 
     setOutputUrl(canvas.toDataURL('image/png'));
-  }, [mode,palette,algo,pixelSize,definition,asciiRamp,asciiFg,asciiBg,asciiSize,htShape,htSize,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
+  }, [mode,palette,algo,detail,definition,asciiRamp,asciiFg,asciiBg,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -833,15 +846,11 @@ export default function Phosphor() {
               <Field label="Mode">
                 <Segmented options={[['dither','Dither'],['ascii','Ascii'],['halftone','Halftone']]} value={mode} onChange={handleModeChange}/>
               </Field>
-              {mode==='dither' && <>
+              {mode==='dither' &&
                 <Field label="Pattern">
                   <Dropdown value={algo} onChange={setAlgo}
                     options={[['bayer','Grid'],['cross','Cross'],['diffusion','Grain'],['atkinson','Atkinson'],['stucki','Stucki'],['sierra','Sierra'],['bluenoise','Blue noise']]}/>
-                </Field>
-                <NumSlider label="Detail" value={pixelSize} min={0.5} max={16} step={0.5}
-                  onChange={setPixelSize} disabled={resLock&&!!sourceDevice}
-                  hint={resLock&&sourceDevice?`${effectivePx}px`:undefined}/>
-              </>}
+                </Field>}
               {mode==='ascii' &&
                 <Field label="Character set">
                   <Dropdown value={asciiRamp} onChange={setAsciiRamp}
@@ -855,6 +864,9 @@ export default function Phosphor() {
                 </Field>
                 <NumSlider label="Screen angle" value={htAngle} min={0} max={90} step={1} onChange={setHtAngle}/>
               </>}
+              <NumSlider label="Detail" value={detail} min={0} max={100} step={1}
+                onChange={setDetail} disabled={mode==='dither'&&resLock&&!!sourceDevice}
+                hint={mode==='dither'&&resLock&&sourceDevice?`${effectivePx}px`:undefined}/>
             </Panel>
 
             <Panel label="Tone">
@@ -917,7 +929,6 @@ export default function Phosphor() {
                   <ColorSwatch label="Bg"   value={asciiBg} onChange={setAsciiBg}/>
                   <InvertButton onClick={invertAscii} title="swap text and background"/>
                 </div>
-                <NumSlider label="Cell size" value={asciiSize} min={4} max={20} step={1} onChange={setAsciiSize}/>
               </Panel>
             </div>}
 
@@ -928,7 +939,6 @@ export default function Phosphor() {
                   <ColorSwatch label="Paper" value={htPaper} onChange={setHtPaper}/>
                   <InvertButton onClick={invertHalftone} title="swap ink and paper"/>
                 </div>
-                <NumSlider label="Dot size" value={htSize} min={1} max={16} step={0.5} onChange={setHtSize}/>
               </Panel>
             </div>}
 
