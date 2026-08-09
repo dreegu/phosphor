@@ -784,7 +784,7 @@ export default function Phosphor() {
 
             {activeTab==='presets' && <div className="anim-fadein flex flex-col gap-2.5">
               <Panel label="LOOKS">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-1.5">
                   {LOOK_PRESETS.map(p=>{
                     const on=activeLook===p.name;
                     return (
@@ -795,7 +795,7 @@ export default function Phosphor() {
                           ? <img src={lookThumbs[p.name]} alt="" className="w-full h-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
                           : <div className="w-full h-full animate-pulse bg-zinc-800"/>}
                       </div>
-                      <div className={`text-xs py-1 text-center tracking-wide ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
+                      <div className={`text-[10px] leading-tight py-1 px-0.5 text-center truncate ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
                     </button>
                   );})}
                 </div>
@@ -980,10 +980,13 @@ function InvertButton({onClick,title}) {
   );
 }
 
-function Panel({label,children}) {
+function Panel({label,children,action}) {
   return (
-    <div className="border border-zinc-800 p-3">
-      <div className="text-xs text-zinc-400 tracking-widest mb-2.5">{label}</div>
+    <div className="pb-3 border-b border-zinc-800/80">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="text-xs text-zinc-400 tracking-widest">{label}</div>
+        {action}
+      </div>
       <div className="flex flex-col gap-2">{children}</div>
     </div>
   );
