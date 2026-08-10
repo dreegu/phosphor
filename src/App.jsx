@@ -49,7 +49,7 @@ const DEVICE_ICONS = {
 const ap = cols => cols.map((color,i,a)=>({ color, anchor: a.length>1 ? i/(a.length-1) : 0.5 }));
 
 // Baseline every look resets to, so a preset only declares what it changes.
-const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, definition:2 };
+const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, definition:2, asciiInvert:false, asciiCutout:0 };
 
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
@@ -227,7 +227,7 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent}) {
 }
 
 // ─── RENDER: ASCII ───────────────────────────────────────────────────────────
-function renderAscii({img,w,h,ramp,fgColor,bgColor,cellSize,getY,transparent}) {
+function renderAscii({img,w,h,ramp,fgColor,bgColor,cellSize,getY,transparent,invert,cutout}) {
   const chars=ASCII_RAMPS[ramp]?.chars||ASCII_RAMPS.standard.chars;
   const cell=Math.max(4,cellSize);
   const cols=Math.floor(w/cell), rows=Math.floor(h/cell);
@@ -242,10 +242,14 @@ function renderAscii({img,w,h,ramp,fgColor,bgColor,cellSize,getY,transparent}) {
   const ctx=canvas.getContext('2d');
   if(!transparent){ ctx.fillStyle=bgColor; ctx.fillRect(0,0,canvas.width,canvas.height); }
   ctx.fillStyle=fgColor; ctx.font=`${cell}px monospace`; ctx.textBaseline='top';
+  const cut=Math.max(0,Math.min(0.95,(cutout||0)/100));
   for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
     const i=(r*cols+c)*4;
     const Y=getY(data[i],data[i+1],data[i+2]);
-    const ci=Math.floor(Y*(chars.length-1));
+    let t=invert?(1-Y):Y;             // t=1 → densest character (the "ink")
+    t=(t-cut)/(1-cut);                // knock the background tone out to blank
+    if(t<=0) continue;                // background: no character at all
+    const ci=Math.round(Math.min(1,t)*(chars.length-1));
     const ch=chars[ci];
     if(ch&&ch!==' ') ctx.fillText(ch,c*cell,r*cell);
   }
@@ -367,7 +371,7 @@ function renderSettingsToCanvas(img,s,w,h){
   const mode=s.mode||'halftone';
   let canvas;
   if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,s.pixelSize||5),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY});
-  else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:s.asciiSize||8,getY});
+  else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:s.asciiSize||8,getY,invert:s.asciiInvert,cutout:s.asciiCutout});
   else canvas=renderHalftone({img,w,h,shape:s.htShape||'circle',dotSize:s.htSize||3.5,angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY});
   const darkColor=mode==='dither'?(([...(s.palette||[])].sort((a,b)=>a.anchor-b.anchor)[0]||{}).color||'#000'):mode==='ascii'?(s.asciiBg||'#000'):'#000';
   applyAtmosphere(canvas,{phosphorGlow:s.phosphorGlow||0,luminanceLift:s.luminanceLift||0,scanlines:s.scanlines||0,noise:s.noise||0,chromaShift:s.chromaShift||0,darkColor});
@@ -400,6 +404,8 @@ export default function Phosphor() {
   const [asciiRamp, setAsciiRamp] = useState('standard');
   const [asciiFg, setAsciiFg] = useState('#00ff41');
   const [asciiBg, setAsciiBg] = useState('#000000');
+  const [asciiInvert, setAsciiInvert] = useState(false);
+  const [asciiCutout, setAsciiCutout] = useState(0);
 
   const [htShape, setHtShape] = useState('circle');
   const [htAngle, setHtAngle] = useState(45);
@@ -529,6 +535,8 @@ export default function Phosphor() {
     if(s.asciiRamp!==undefined) setAsciiRamp(s.asciiRamp);
     if(s.asciiFg!==undefined) setAsciiFg(s.asciiFg);
     if(s.asciiBg!==undefined) setAsciiBg(s.asciiBg);
+    if(s.asciiInvert!==undefined) setAsciiInvert(s.asciiInvert);
+    if(s.asciiCutout!==undefined) setAsciiCutout(s.asciiCutout);
     if(s.htShape!==undefined) setHtShape(s.htShape);
     if(s.htAngle!==undefined) setHtAngle(s.htAngle);
     if(s.htInk!==undefined) setHtInk(s.htInk);
@@ -555,10 +563,10 @@ export default function Phosphor() {
   const getSettings = useCallback(() => ({
     mode, algo, detail, definition,
     palette: palette.map(({color,anchor})=>({color,anchor})),
-    asciiRamp, asciiFg, asciiBg,
+    asciiRamp, asciiFg, asciiBg, asciiInvert, asciiCutout,
     htShape, htAngle, htInk, htPaper,
     contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
-  }), [mode,algo,detail,definition,palette,asciiRamp,asciiFg,asciiBg,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
+  }), [mode,algo,detail,definition,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
 
   const shareSettings = () => {
     const packed = LZString.compressToEncodedURIComponent(JSON.stringify(getSettings()));
@@ -692,7 +700,7 @@ export default function Phosphor() {
     let canvas;
     const tp=transparentBg;
     if(mode==='dither') canvas=renderDither({img,w,h,px,palette,algo,getY,transparent:tp});
-    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:detailToSize('ascii',detail)*D,getY,transparent:tp});
+    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:detailToSize('ascii',detail)*D,getY,transparent:tp,invert:asciiInvert,cutout:asciiCutout});
     else if(mode==='halftone') canvas=renderHalftone({img,w,h,shape:htShape,dotSize:detailToSize('halftone',detail)*D,angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
     if (!canvas) return;
 
@@ -721,7 +729,7 @@ export default function Phosphor() {
 
     outputCanvasRef.current = canvas;
     setOutputUrl(canvas.toDataURL('image/png'));
-  }, [mode,palette,algo,detail,definition,asciiRamp,asciiFg,asciiBg,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
+  }, [mode,palette,algo,detail,definition,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -1000,6 +1008,13 @@ export default function Phosphor() {
             </div>}
 
             {mode==='ascii' && <div key="ascii" className="anim-fadein flex flex-col">
+              <Panel label="Subject">
+                <Field label="Characters on">
+                  <Segmented options={[[false,'Bright'],[true,'Dark']]} value={asciiInvert} onChange={setAsciiInvert}/>
+                </Field>
+                <NumSlider label="Clear background" value={asciiCutout} min={0} max={95} step={1} onChange={setAsciiCutout}/>
+                <div className="text-xs text-zinc-600 leading-relaxed">Raise to leave flat areas blank so only the subject is drawn. Toggle whether bright or dark pixels get characters.</div>
+              </Panel>
               <Panel label="Colors">
                 <div className="flex items-center gap-4">
                   <ColorSwatch label="Text" value={asciiFg} onChange={setAsciiFg}/>
