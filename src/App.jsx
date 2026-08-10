@@ -379,6 +379,8 @@ export default function Phosphor() {
   const [imageSrc, setImageSrc] = useState(DEFAULT_IMAGE);
   const [fileName, setFileName] = useState('creation-of-adam.jpg');
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({x:0,y:0});
+  const viewRef = useRef({zoom:1, pan:{x:0,y:0}});
 
   const [mode, setMode] = useState('halftone');
   const [activeTab, setActiveTab] = useState('presets');
@@ -593,18 +595,74 @@ export default function Phosphor() {
     img.src = DEFAULT_IMAGE;
   }, []);
 
-  // Zoom the preview with the scroll wheel and trackpad pinch (pinch arrives as a ctrlKey wheel event).
+  useEffect(() => { viewRef.current = {zoom, pan}; }, [zoom, pan]);
+
+  const clampZoom = z => Math.max(0.25, Math.min(8, z));
+  const resetView = () => { setZoom(1); setPan({x:0,y:0}); };
+  // Zoom to a target level while keeping the point (px,py) — measured from the viewport centre — fixed.
+  const zoomAt = (target, px, py) => {
+    const {zoom:z, pan:p} = viewRef.current;
+    const nz = clampZoom(target);
+    const lx = (px - p.x)/z, ly = (py - p.y)/z;
+    setZoom(nz);
+    setPan({ x: px - nz*lx, y: py - nz*ly });
+  };
+
+  // Pan by dragging; zoom to the cursor via wheel/trackpad-pinch; zoom to the midpoint via touch pinch.
   useEffect(() => {
     const el = zoomAreaRef.current;
     if (!el) return;
+    const rel = (cx, cy) => { const r = el.getBoundingClientRect(); return [cx - r.left - r.width/2, cy - r.top - r.height/2]; };
+
     const onWheel = (e) => {
       e.preventDefault();
-      // pinch gestures send larger deltas; scale the step so both feel natural
-      const factor = e.ctrlKey ? 0.01 : 0.0025;
-      setZoom(z => Math.max(0.25, Math.min(4, +(z - e.deltaY * factor).toFixed(3))));
+      const {zoom:z} = viewRef.current;
+      const [px, py] = rel(e.clientX, e.clientY);
+      const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0025));
+      zoomAt(z*factor, px, py);
     };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+
+    let dragging = false, last = null;
+    const onDown = (e) => { if(e.pointerType==='mouse' && e.button!==0) return; if(e.pointerType==='touch') return; dragging=true; last=[e.clientX,e.clientY]; el.setPointerCapture?.(e.pointerId); el.style.cursor='grabbing'; };
+    const onMove = (e) => { if(!dragging) return; setPan(p=>({x:p.x+(e.clientX-last[0]), y:p.y+(e.clientY-last[1])})); last=[e.clientX,e.clientY]; };
+    const onUp = () => { dragging=false; el.style.cursor='grab'; };
+
+    let pinch = null;
+    const onTouchMove = (e) => {
+      if(e.touches.length===1 && !pinch){
+        e.preventDefault();
+        const t=e.touches[0];
+        if(last){ setPan(p=>({x:p.x+(t.clientX-last[0]), y:p.y+(t.clientY-last[1])})); }
+        last=[t.clientX,t.clientY];
+      } else if(e.touches.length===2){
+        e.preventDefault();
+        const [a,b]=e.touches;
+        const dist=Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
+        const [mx,my]=rel((a.clientX+b.clientX)/2, (a.clientY+b.clientY)/2);
+        if(pinch){ zoomAt(viewRef.current.zoom*(dist/pinch.dist), mx, my); }
+        pinch={dist};
+      }
+    };
+    const onTouchStart = (e) => { last = e.touches.length? [e.touches[0].clientX,e.touches[0].clientY] : null; };
+    const onTouchEnd = (e) => { if(e.touches.length<2) pinch=null; if(e.touches.length===0) last=null; };
+
+    el.addEventListener('wheel', onWheel, { passive:false });
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    el.addEventListener('touchstart', onTouchStart, { passive:false });
+    el.addEventListener('touchmove', onTouchMove, { passive:false });
+    el.addEventListener('touchend', onTouchEnd);
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const process = useCallback(() => {
@@ -777,9 +835,9 @@ export default function Phosphor() {
 
           {/* IMAGE */}
           <div className="relative flex-1 bg-zinc-900 flex flex-col overflow-hidden">
-            <div ref={zoomAreaRef} className="flex-1 flex items-center justify-center overflow-hidden p-4 relative">
-              <div style={{transform:`scale(${zoom})`,transformOrigin:'center center',transition:'transform 0.15s'}}>
-                <img src={outputUrl||imageSrc} alt="preview"
+            <div ref={zoomAreaRef} className="flex-1 flex items-center justify-center overflow-hidden p-4 relative touch-none select-none" style={{cursor:'grab'}}>
+              <div style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
+                <img src={outputUrl||imageSrc} alt="preview" draggable={false}
                   className={`max-w-full max-h-full block ${transparentBg?'checker':''}`}
                   style={{imageRendering:mode==='ascii'?'auto':'pixelated'}}/>
               </div>
@@ -787,16 +845,16 @@ export default function Phosphor() {
 
             <div className="relative flex items-center px-3 py-2 border-t border-zinc-800 shrink-0">
               <div className="flex items-center gap-1.5">
-                <button onClick={()=>setZoom(z=>Math.max(0.25,+(z-0.25).toFixed(2)))}
+                <button onClick={()=>zoomAt(viewRef.current.zoom-0.25,0,0)}
                   className="icon-btn w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
                   <ZoomOut size={12}/>
                 </button>
                 <span className="text-xs text-zinc-600 w-10 text-center">{Math.round(zoom*100)}%</span>
-                <button onClick={()=>setZoom(z=>Math.min(4,+(z+0.25).toFixed(2)))}
+                <button onClick={()=>zoomAt(viewRef.current.zoom+0.25,0,0)}
                   className="icon-btn w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
                   <ZoomIn size={12}/>
                 </button>
-                <button onClick={()=>setZoom(1)} className="text-xs text-zinc-600 hover:text-amber-400 ml-1">reset</button>
+                <button onClick={resetView} className="text-xs text-zinc-600 hover:text-amber-400 ml-1">reset</button>
               </div>
               <a href="https://rodrigosilva.design" target="_blank" rel="noopener noreferrer"
                 className="absolute left-1/2 -translate-x-1/2 text-xs text-zinc-600 hover:text-amber-400 transition-colors">
