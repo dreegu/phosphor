@@ -855,7 +855,13 @@ export default function Phosphor() {
     img.src = imageSrc;
   }, [imageSrc]);
 
-  useEffect(() => { if (imgRef.current) process(); }, [process]);
+  // Coalesce rapid setting changes (e.g. dragging a slider) into one render per frame
+  // so the heavy full-canvas render + toDataURL doesn't stutter, especially on mobile.
+  useEffect(() => {
+    if (!imgRef.current) return;
+    const id = requestAnimationFrame(() => process());
+    return () => cancelAnimationFrame(id);
+  }, [process]);
 
   const handleDownload = async () => {
     const now = new Date();
@@ -985,10 +991,10 @@ export default function Phosphor() {
       </div>
 
 
-        <div className="flex flex-1 overflow-hidden" onDrop={handleDrop} onDragOver={e=>e.preventDefault()}>
+        <div className="flex flex-1 overflow-hidden flex-col md:flex-row" onDrop={handleDrop} onDragOver={e=>e.preventDefault()}>
 
           {/* IMAGE */}
-          <div className="relative flex-1 bg-zinc-900 flex flex-col overflow-hidden">
+          <div className="relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 h-[45vh] md:h-auto md:flex-1">
             <div ref={zoomAreaRef} className="flex-1 flex items-center justify-center overflow-hidden p-4 relative touch-none select-none" style={{cursor:'grab'}}>
               <div style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
                 <img src={outputUrl||imageSrc} alt="preview" draggable={false}
@@ -1011,14 +1017,14 @@ export default function Phosphor() {
                 <button onClick={resetView} className="text-xs text-zinc-600 hover:text-amber-400 ml-1">reset</button>
               </div>
               <a href="https://rodrigosilva.design" target="_blank" rel="noopener noreferrer"
-                className="absolute left-1/2 -translate-x-1/2 text-xs text-zinc-600 hover:text-amber-400 transition-colors">
+                className="hidden md:block absolute left-1/2 -translate-x-1/2 text-xs text-zinc-600 hover:text-amber-400 transition-colors">
                 by rodrigosilva.design
               </a>
             </div>
           </div>
 
           {/* CONTROLS */}
-          <div className="w-72 xl:w-80 shrink-0 flex flex-col bg-zinc-950 border-l border-zinc-800">
+          <div className="w-full md:w-72 xl:w-80 flex-1 md:flex-none min-h-0 flex flex-col bg-zinc-950 border-t md:border-t-0 md:border-l border-zinc-800">
 
             {/* TAB BAR */}
             <div className="flex shrink-0 border-b border-zinc-800">
