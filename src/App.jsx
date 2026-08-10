@@ -49,7 +49,7 @@ const DEVICE_ICONS = {
 const ap = cols => cols.map((color,i,a)=>({ color, anchor: a.length>1 ? i/(a.length-1) : 0.5 }));
 
 // Baseline every look resets to, so a preset only declares what it changes.
-const LOOK_BASE = { contrast:0, midtones:1, highlights:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, definition:2 };
+const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, definition:2 };
 
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
@@ -95,12 +95,18 @@ const SOURCE_DEVICES = {
   teletext:    { name:'TELETEXT',       year:'1976', mode:'ascii',  asciiRamp:'blocks', asciiFg:'#FFFFFF', asciiBg:'#000000', asciiSize:12,                                                                                                 note:'BBC Teletext · 8 colors · block graphics · 40×25 cols' },
 };
 
+// Default look applied to the default image on first load (and used by shuffle).
+const DEFAULT_SETTINGS = {
+  mode:'halftone', algo:'bayer', detail:61, definition:1,
+  palette:ap(['#1a1410','#5c4a32','#a8865a','#f4e4c1']),
+  htShape:'circle', htAngle:0, htInk:'#1388f6', htPaper:'#f2ede4',
+  contrast:65, midtones:0.55, highlights:0.65,
+  phosphorGlow:0, luminanceLift:0, scanlines:0, noise:16, chromaShift:0.5,
+};
+
 // Pool of default image + settings pairs for the shuffle button. More images to be added later.
 const DEFAULT_POOL = [
-  { image:DEFAULT_IMAGE, fileName:'creation-of-adam.jpg', settings:{
-    mode:'halftone', htShape:'circle', htSize:3.5, htAngle:45, htInk:'#3e3227', htPaper:'#f7f4e7',
-    phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0,
-  } },
+  { image:DEFAULT_IMAGE, fileName:'creation-of-adam.jpg', settings:DEFAULT_SETTINGS },
 ];
 
 function hexToRgb(h) { return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]; }
@@ -345,12 +351,12 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
 
 // Build the tone-mapping function from a settings object (mirrors process()).
 function makeGetY(s){
-  const cf=(100+(s.contrast||0))/100, mid=s.midtones||1, hi=s.highlights||1;
+  const cf=(100+(s.contrast||0))/100, mid=s.midtones||1, hi=s.highlights||1, sh=s.shadows||1;
   return (r,g,b)=>{
     let y=luminance([r,g,b]);
     y=(y-0.5)*cf+0.5;
     y=Math.pow(Math.max(0,Math.min(1,y)),1/mid);
-    if(y>0.5) y=0.5+(y-0.5)*hi;
+    if(y>0.5) y=0.5+(y-0.5)*hi; else y=0.5-(0.5-y)*sh;
     return Math.max(0,Math.min(1,y));
   };
 }
@@ -401,6 +407,7 @@ export default function Phosphor() {
   const [contrast, setContrast] = useState(0);
   const [midtones, setMidtones] = useState(1);
   const [highlights, setHighlights] = useState(1);
+  const [shadows, setShadows] = useState(1);
 
   const [phosphorGlow, setPhosphorGlow] = useState(0);
   const [luminanceLift, setLuminanceLift] = useState(0);
@@ -527,6 +534,7 @@ export default function Phosphor() {
     if(s.contrast!==undefined) setContrast(s.contrast);
     if(s.midtones!==undefined) setMidtones(s.midtones);
     if(s.highlights!==undefined) setHighlights(s.highlights);
+    if(s.shadows!==undefined) setShadows(s.shadows);
     if(s.phosphorGlow!==undefined) setPhosphorGlow(s.phosphorGlow);
     if(s.luminanceLift!==undefined) setLuminanceLift(s.luminanceLift);
     if(s.scanlines!==undefined) setScanlines(s.scanlines);
@@ -547,8 +555,8 @@ export default function Phosphor() {
     palette: palette.map(({color,anchor})=>({color,anchor})),
     asciiRamp, asciiFg, asciiBg,
     htShape, htAngle, htInk, htPaper,
-    contrast, midtones, highlights, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
-  }), [mode,algo,detail,definition,palette,asciiRamp,asciiFg,asciiBg,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
+    contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
+  }), [mode,algo,detail,definition,palette,asciiRamp,asciiFg,asciiBg,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
 
   const shareSettings = () => {
     const packed = LZString.compressToEncodedURIComponent(JSON.stringify(getSettings()));
@@ -561,12 +569,12 @@ export default function Phosphor() {
   // On first load, apply settings from the URL hash if present. Fails silently.
   useEffect(() => {
     const hash = window.location.hash.replace(/^#/, '');
-    if (!hash) return;
+    if (!hash) { applyLoadedSettings(DEFAULT_SETTINGS); return; }
     try {
       const json = LZString.decompressFromEncodedURIComponent(hash);
-      if (!json) return;
+      if (!json) { applyLoadedSettings(DEFAULT_SETTINGS); return; }
       applyLoadedSettings(JSON.parse(json));
-    } catch { /* ignore malformed hash */ }
+    } catch { applyLoadedSettings(DEFAULT_SETTINGS); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -614,7 +622,7 @@ export default function Phosphor() {
       let y=luminance([r,g,b]);
       y=(y-0.5)*cf+0.5;
       y=Math.pow(Math.max(0,Math.min(1,y)),1/midtones);
-      if(y>0.5) y=0.5+(y-0.5)*highlights;
+      if(y>0.5) y=0.5+(y-0.5)*highlights; else y=0.5-(0.5-y)*shadows;
       return Math.max(0,Math.min(1,y));
     };
 
@@ -655,7 +663,7 @@ export default function Phosphor() {
 
     outputCanvasRef.current = canvas;
     setOutputUrl(canvas.toDataURL('image/png'));
-  }, [mode,palette,algo,detail,definition,asciiRamp,asciiFg,asciiBg,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
+  }, [mode,palette,algo,detail,definition,asciiRamp,asciiFg,asciiBg,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -884,10 +892,11 @@ export default function Phosphor() {
                 hint={mode==='dither'&&resLock&&sourceDevice?`${effectivePx}px`:undefined}/>
             </Panel>
 
-            <Panel label="Tone">
+            <Panel label="Appearance">
               <NumSlider label="Contrast"   value={contrast}   min={-100} max={100} step={1}    onChange={setContrast}/>
               <NumSlider label="Midtones"   value={midtones}   min={0.3}  max={2.5} step={0.05} onChange={setMidtones}/>
               <NumSlider label="Highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
+              <NumSlider label="Shadows"    value={shadows}    min={0.3}  max={2.5} step={0.05} onChange={setShadows}/>
             </Panel>
 
             {mode==='dither' && <div key="dither" className="anim-fadein flex flex-col">
@@ -933,7 +942,7 @@ export default function Phosphor() {
             </div>}
 
             {mode==='ascii' && <div key="ascii" className="anim-fadein flex flex-col">
-              <Panel label="Appearance">
+              <Panel label="Colors">
                 <div className="flex items-center gap-4">
                   <ColorSwatch label="Text" value={asciiFg} onChange={setAsciiFg}/>
                   <ColorSwatch label="Bg"   value={asciiBg} onChange={setAsciiBg}/>
