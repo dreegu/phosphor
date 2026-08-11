@@ -739,25 +739,34 @@ export default function Phosphor() {
       zoomAt(z*factor, px, py);
     };
 
-    // Drag to pan. Listen for move/up on window so the drag keeps tracking even when
-    // the cursor leaves the canvas or slips over the image child mid-drag.
-    let dragging = false, last = null;
+    // Drag to pan. Bind move/up dynamically on each pointerdown (on window, so the drag
+    // tracks even when the cursor leaves the canvas). Keeping the drag state local to the
+    // onDown call — instead of a shared flag on the effect — means an in-flight drag can't
+    // be interrupted by a re-render, which was silently cancelling every pan.
     const onDown = (e) => {
       if(e.pointerType==='touch') return;
       if(e.button!==0) return;
-      dragging=true; last=[e.clientX,e.clientY];
+      let prev=[e.clientX,e.clientY];
       el.style.cursor='grabbing';
       e.preventDefault();
+      const move=(ev)=>{
+        // Compute the delta now and update `prev` before scheduling state — the setPan
+        // updater runs lazily at render time, so it must close over the numbers, not `prev`.
+        const dx=ev.clientX-prev[0], dy=ev.clientY-prev[1];
+        prev=[ev.clientX,ev.clientY];
+        setPan(p=>({x:p.x+dx, y:p.y+dy}));
+      };
+      const up=()=>{ el.style.cursor='grab'; window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',up); };
+      window.addEventListener('pointermove',move);
+      window.addEventListener('pointerup',up);
     };
-    const onMove = (e) => { if(!dragging) return; setPan(p=>({x:p.x+(e.clientX-last[0]), y:p.y+(e.clientY-last[1])})); last=[e.clientX,e.clientY]; };
-    const onUp = () => { if(!dragging) return; dragging=false; el.style.cursor='grab'; };
 
-    let pinch = null;
+    let last = null, pinch = null;
     const onTouchMove = (e) => {
       if(e.touches.length===1 && !pinch){
         e.preventDefault();
         const t=e.touches[0];
-        if(last){ setPan(p=>({x:p.x+(t.clientX-last[0]), y:p.y+(t.clientY-last[1])})); }
+        if(last){ const dx=t.clientX-last[0], dy=t.clientY-last[1]; setPan(p=>({x:p.x+dx, y:p.y+dy})); }
         last=[t.clientX,t.clientY];
       } else if(e.touches.length===2){
         e.preventDefault();
@@ -773,16 +782,12 @@ export default function Phosphor() {
 
     el.addEventListener('wheel', onWheel, { passive:false });
     el.addEventListener('pointerdown', onDown);
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
     el.addEventListener('touchstart', onTouchStart, { passive:false });
     el.addEventListener('touchmove', onTouchMove, { passive:false });
     el.addEventListener('touchend', onTouchEnd);
     return () => {
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
@@ -1227,7 +1232,7 @@ function InvertButton({onClick,title}) {
 function ResetButton({onClick,title}) {
   return (
     <button onClick={onClick} title={title} aria-label={title}
-      className="icon-btn flex items-center justify-center w-6 h-6 shrink-0 text-zinc-600 hover:text-amber-300 transition-colors">
+      className="flex items-center justify-center w-6 h-6 -my-1 shrink-0 text-zinc-600 hover:text-amber-300 transition-colors">
       <RotateCcw size={12}/>
     </button>
   );
@@ -1236,7 +1241,7 @@ function ResetButton({onClick,title}) {
 function Panel({label,children,action}) {
   return (
     <div className="border-b border-zinc-800 px-4 py-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 min-h-6">
         <div className="text-xs font-medium tracking-wide text-zinc-300">{label}</div>
         {action}
       </div>
