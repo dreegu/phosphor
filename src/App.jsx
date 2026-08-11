@@ -49,7 +49,7 @@ const DEVICE_ICONS = {
 const ap = cols => cols.map((color,i,a)=>({ color, anchor: a.length>1 ? i/(a.length-1) : 0.5 }));
 
 // Baseline every look resets to, so a preset only declares what it changes.
-const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, definition:2, asciiInvert:false, asciiCutout:0, asciiBold:true };
+const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, definition:2, asciiInvert:false, asciiCutout:0, asciiBold:true, dcolor:'palette', adaptiveCount:8 };
 
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
@@ -159,8 +159,75 @@ function getBlueNoise() {
   return _blueNoise;
 }
 
+// ─── ADAPTIVE COLOR ──────────────────────────────────────────────────────────
+// Nearest palette color index by squared RGB distance.
+function nearestIdx(r,g,b,pal){
+  let best=0,bd=Infinity;
+  for(let k=0;k<pal.length;k++){const p=pal[k];const dr=r-p[0],dg=g-p[1],db=b-p[2];const d=dr*dr+dg*dg+db*db;if(d<bd){bd=d;best=k;}}
+  return best;
+}
+// Median-cut: derive an n-color palette from an array of [r,g,b] samples.
+function medianCutPalette(samples,n){
+  if(!samples.length) return [[0,0,0],[255,255,255]];
+  const rangeOf=(box)=>{
+    let r0=255,r1=0,g0=255,g1=0,b0=255,b1=0;
+    for(const p of box){ if(p[0]<r0)r0=p[0]; if(p[0]>r1)r1=p[0]; if(p[1]<g0)g0=p[1]; if(p[1]>g1)g1=p[1]; if(p[2]<b0)b0=p[2]; if(p[2]>b1)b1=p[2]; }
+    const dr=r1-r0,dg=g1-g0,db=b1-b0,mx=Math.max(dr,dg,db);
+    return {span:mx, axis: mx===dr?0:(mx===dg?1:2)};
+  };
+  let boxes=[samples];
+  while(boxes.length<n){
+    let bi=-1,bspan=-1;
+    for(let i=0;i<boxes.length;i++){ if(boxes[i].length<2) continue; const {span}=rangeOf(boxes[i]); if(span>bspan){bspan=span;bi=i;} }
+    if(bi<0) break;
+    const box=boxes[bi]; const {axis}=rangeOf(box);
+    box.sort((a,b)=>a[axis]-b[axis]);
+    const mid=box.length>>1;
+    boxes.splice(bi,1,box.slice(0,mid),box.slice(mid));
+  }
+  return boxes.map(box=>{let r=0,g=0,b=0;for(const p of box){r+=p[0];g+=p[1];b+=p[2];}const m=box.length;return [Math.round(r/m),Math.round(g/m),Math.round(b/m)];});
+}
+// Dither the image toward a palette derived FROM the image (hue preserved). Fills `out`; returns the palette.
+function ditherAdaptive(data,sw,sh,out,algo,getY,n){
+  const total=sw*sh;
+  const R=new Float32Array(total),G=new Float32Array(total),B=new Float32Array(total);
+  for(let i=0;i<total;i++){
+    const di=i*4, r=data[di],g=data[di+1],b=data[di+2];
+    const lum=luminance([r,g,b]), nl=getY(r,g,b), sc= lum>0.004? nl/lum : nl;   // hue-preserving tone
+    R[i]=Math.min(255,r*sc); G[i]=Math.min(255,g*sc); B[i]=Math.min(255,b*sc);
+  }
+  const stride=Math.max(1,Math.floor(total/4000)), samples=[];
+  for(let i=0;i<total;i+=stride) samples.push([R[i],G[i],B[i]]);
+  const pal=medianCutPalette(samples, Math.max(2,Math.min(16,n||8)));
+  const ordered = algo==='bayer'||algo==='cross'||algo==='bluenoise';
+  if(ordered){
+    const{matrix,size,max}=algo==='bluenoise'?getBlueNoise():ORDERED_PATTERNS[algo];
+    const amp=48;
+    for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){
+      const i=y*sw+x, thr=((matrix[y%size][x%size]+0.5)/max-0.5)*amp;
+      const c=pal[nearestIdx(R[i]+thr,G[i]+thr,B[i]+thr,pal)], oi=i*4;
+      out[oi]=c[0];out[oi+1]=c[1];out[oi+2]=c[2];out[oi+3]=255;
+    }
+  } else {
+    for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){
+      const i=y*sw+x, r=Math.max(0,Math.min(255,R[i])),g=Math.max(0,Math.min(255,G[i])),b=Math.max(0,Math.min(255,B[i]));
+      const c=pal[nearestIdx(r,g,b,pal)], oi=i*4;
+      out[oi]=c[0];out[oi+1]=c[1];out[oi+2]=c[2];out[oi+3]=255;
+      const er=r-c[0],eg=g-c[1],eb=b-c[2];
+      if(algo==='atkinson'){
+        const f=1/8, push=(nx,ny)=>{ if(nx>=0&&nx<sw&&ny>=0&&ny<sh){const j=ny*sw+nx;R[j]+=er*f;G[j]+=eg*f;B[j]+=eb*f;} };
+        push(x+1,y);push(x+2,y);push(x-1,y+1);push(x,y+1);push(x+1,y+1);push(x,y+2);
+      } else {
+        const{div,taps}=DIFFUSION_KERNELS[algo]||DIFFUSION_KERNELS.diffusion;
+        for(const[dx,dy,wt]of taps){ const nx=x+dx,ny=y+dy; if(nx>=0&&nx<sw&&ny>=0&&ny<sh){const j=ny*sw+nx,f=wt/div;R[j]+=er*f;G[j]+=eg*f;B[j]+=eb*f;} }
+      }
+    }
+  }
+  return pal;
+}
+
 // ─── RENDER: DITHER ──────────────────────────────────────────────────────────
-function renderDither({img,w,h,px,palette,algo,getY,transparent}) {
+function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount}) {
   const sw = Math.max(1,Math.round(w/px)), sh = Math.max(1,Math.round(h/px));
   const small = document.createElement('canvas');
   small.width=sw; small.height=sh;
@@ -168,11 +235,21 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent}) {
   sctx.imageSmoothingEnabled = true;
   sctx.drawImage(img, 0, 0, sw, sh);
   const data = sctx.getImageData(0,0,sw,sh).data;
+  const out = new Uint8ClampedArray(sw*sh*4);
+  if (colorMode==='adaptive') {
+    ditherAdaptive(data,sw,sh,out,algo,getY,adaptiveCount);
+    sctx.putImageData(new ImageData(out,sw,sh),0,0);
+    const canvas=document.createElement('canvas');
+    canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext('2d');
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(small,0,0,sw,sh,0,0,w,h);
+    return canvas;
+  }
   const sorted = [...palette].sort((a,b) => a.anchor-b.anchor);
   const cols = sorted.map(p => hexToRgb(p.color));
   const lums = sorted.map(p => p.anchor);
   const bgIdx = cols.length-1;   // highest anchor = lightest = background when exporting transparent
-  const out = new Uint8ClampedArray(sw*sh*4);
   const qOrd = (Y,x,y,matrix,size,maxVal) => {
     if (Y<=lums[0]) return 0;
     if (Y>=lums[lums.length-1]) return lums.length-1;
@@ -373,7 +450,7 @@ function renderSettingsToCanvas(img,s,w,h){
   const getY=makeGetY(s);
   const mode=s.mode||'halftone';
   let canvas;
-  if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,s.pixelSize||5),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY});
+  if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,s.pixelSize||5),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount});
   else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:s.asciiSize||8,getY,invert:s.asciiInvert,cutout:s.asciiCutout,bold:s.asciiBold!==false});
   else canvas=renderHalftone({img,w,h,shape:s.htShape||'circle',dotSize:s.htSize||3.5,angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY});
   const darkColor=mode==='dither'?(([...(s.palette||[])].sort((a,b)=>a.anchor-b.anchor)[0]||{}).color||'#000'):mode==='ascii'?(s.asciiBg||'#000'):'#000';
@@ -451,8 +528,8 @@ function buildHalftoneSVG({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY,
 
 // Dither → sample the rendered block grid and emit rects, merging horizontal runs of
 // one colour so files stay lean. Reuses renderDither so the pattern matches exactly.
-function buildDitherSVG({img,w,h,px,palette,algo,getY,transparent}){
-  const canvas=renderDither({img,w,h,px,palette,algo,getY,transparent});
+function buildDitherSVG({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount}){
+  const canvas=renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount});
   const cw=canvas.width, ch=canvas.height;
   const data=canvas.getContext('2d').getImageData(0,0,cw,ch).data;
   const step=Math.max(1,Math.round(px));
@@ -482,7 +559,7 @@ function renderSettingsToSVG(img,s,w,h){
   const tp=!!s.transparent;
   if(mode==='ascii') return buildAsciiSVG({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:detailToSize('ascii',s.detail??55),getY,transparent:tp,invert:!!s.asciiInvert,cutout:s.asciiCutout||0,bold:s.asciiBold!==false});
   if(mode==='halftone') return buildHalftoneSVG({img,w,h,shape:s.htShape||'circle',dotSize:detailToSize('halftone',s.detail??55),angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY,transparent:tp});
-  return buildDitherSVG({img,w,h,px:Math.max(1,detailToSize('dither',s.detail??55)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,transparent:tp});
+  return buildDitherSVG({img,w,h,px:Math.max(1,detailToSize('dither',s.detail??55)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,transparent:tp,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount});
 }
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
@@ -502,7 +579,10 @@ export default function Phosphor() {
   const [palette, setPalette] = useState(() =>
     PALETTE_PRESETS.amber.colors.map((c,i,a) => mkEntry(c, a.length>1?i/(a.length-1):0.5))
   );
+  const [paletteKey, setPaletteKey] = useState('amber');  // selected preset, or null when hand-edited
   const [algo, setAlgo] = useState('bayer');
+  const [dcolor, setDcolor] = useState('palette');        // dither color mode: 'palette' | 'adaptive'
+  const [adaptiveCount, setAdaptiveCount] = useState(8);  // adaptive palette size
   const [detail, setDetail] = useState(55);   // unified 0-100, higher = more detail
   const [resLock, setResLock] = useState(false);
   const [effectivePx, setEffectivePx] = useState(5);
@@ -620,26 +700,29 @@ export default function Phosphor() {
   const applyPalettePreset = (key) => {
     const c = PALETTE_PRESETS[key].colors;
     setPalette(c.map((col,i,a) => mkEntry(col, a.length>1?i/(a.length-1):0.5)));
+    setPaletteKey(key);
   };
 
   // Swap foreground/background on the two-color modes. Stateless — it just exchanges the colors.
   const invertAscii    = () => { setAsciiFg(asciiBg); setAsciiBg(asciiFg); };
   const invertHalftone = () => { setHtInk(htPaper);   setHtPaper(htInk);   };
-  const invertPalette  = () => setPalette(p => p.length===2
+  const invertPalette  = () => { setPaletteKey(null); setPalette(p => p.length===2
     ? [{...p[0],color:p[1].color},{...p[1],color:p[0].color}]
-    : p);
+    : p); };
 
   // Apply a (possibly partial) settings object to state. Shared by shuffle and URL loading.
   const applyLoadedSettings = (s) => {
     if(s.mode!==undefined) setMode(s.mode);
     if(s.algo!==undefined) setAlgo(s.algo);
+    if(s.dcolor!==undefined) setDcolor(s.dcolor);
+    if(s.adaptiveCount!==undefined) setAdaptiveCount(s.adaptiveCount);
     if(s.definition!==undefined) setDefinition(s.definition);
     // Unified detail, with backward-compat for older presets/links that stored raw sizes.
     if(s.detail!==undefined) setDetail(s.detail);
     else if(s.pixelSize!==undefined) setDetail(sizeToDetail('dither',s.pixelSize));
     else if(s.asciiSize!==undefined) setDetail(sizeToDetail('ascii',s.asciiSize));
     else if(s.htSize!==undefined) setDetail(sizeToDetail('halftone',s.htSize));
-    if(s.palette!==undefined) setPalette(s.palette.map(p=>mkEntry(p.color,p.anchor)));
+    if(s.palette!==undefined) { setPalette(s.palette.map(p=>mkEntry(p.color,p.anchor))); setPaletteKey(null); }
     if(s.asciiRamp!==undefined) setAsciiRamp(s.asciiRamp);
     if(s.asciiFg!==undefined) setAsciiFg(s.asciiFg);
     if(s.asciiBg!==undefined) setAsciiBg(s.asciiBg);
@@ -670,12 +753,12 @@ export default function Phosphor() {
   };
 
   const getSettings = useCallback(() => ({
-    mode, algo, detail, definition,
+    mode, algo, dcolor, adaptiveCount, detail, definition,
     palette: palette.map(({color,anchor})=>({color,anchor})),
     asciiRamp, asciiFg, asciiBg, asciiInvert, asciiCutout, asciiBold,
     htShape, htAngle, htInk, htPaper,
     contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
-  }), [mode,algo,detail,definition,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
+  }), [mode,algo,dcolor,adaptiveCount,detail,definition,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
 
   const shareSettings = () => {
     const packed = LZString.compressToEncodedURIComponent(JSON.stringify(getSettings()));
@@ -821,7 +904,7 @@ export default function Phosphor() {
 
     let canvas;
     const tp=transparentBg;
-    if(mode==='dither') canvas=renderDither({img,w,h,px,palette,algo,getY,transparent:tp});
+    if(mode==='dither') canvas=renderDither({img,w,h,px,palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount});
     else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:detailToSize('ascii',detail)*D,getY,transparent:tp,invert:asciiInvert,cutout:asciiCutout,bold:asciiBold});
     else if(mode==='halftone') canvas=renderHalftone({img,w,h,shape:htShape,dotSize:detailToSize('halftone',detail)*D,angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
     if (!canvas) return;
@@ -851,7 +934,7 @@ export default function Phosphor() {
 
     outputCanvasRef.current = canvas;
     setOutputUrl(canvas.toDataURL('image/png'));
-  }, [mode,palette,algo,detail,definition,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
+  }, [mode,palette,algo,dcolor,adaptiveCount,detail,definition,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -935,10 +1018,10 @@ export default function Phosphor() {
     a.href = url; a.click();
   };
 
-  const updateColor  = (id,hex) => setPalette(p=>p.map(e=>e.id===id?{...e,color:hex}:e));
-  const updateAnchor = (id,val) => setPalette(p=>p.map(e=>e.id===id?{...e,anchor:val}:e));
-  const addColor     = () => { if(palette.length<5) setPalette(p=>[...p,mkEntry('#888888',0.5)]); };
-  const removeColor  = (id) => { if(palette.length>2) setPalette(p=>p.filter(e=>e.id!==id)); };
+  const updateColor  = (id,hex) => { setPaletteKey(null); setPalette(p=>p.map(e=>e.id===id?{...e,color:hex}:e)); };
+  const updateAnchor = (id,val) => { setPaletteKey(null); setPalette(p=>p.map(e=>e.id===id?{...e,anchor:val}:e)); };
+  const addColor     = () => { if(palette.length<5){ setPaletteKey(null); setPalette(p=>[...p,mkEntry('#888888',0.5)]); } };
+  const removeColor  = (id) => { if(palette.length>2){ setPaletteKey(null); setPalette(p=>p.filter(e=>e.id!==id)); } };
   const displayPalette = [...palette].sort((a,b)=>a.anchor-b.anchor);
 
   // Reset-to-default affordances: only surfaced once a value has moved off its baseline.
@@ -1123,44 +1206,51 @@ export default function Phosphor() {
             </Panel>
 
             {mode==='dither' && <div key="dither" className="anim-fadein flex flex-col">
-              <Panel label="Palette">
-                <div className="flex gap-1 mb-1 flex-wrap">
-                  {Object.entries(PALETTE_PRESETS).map(([k,p])=>(
-                    <button key={k} onClick={()=>applyPalettePreset(k)}
-                      className="h-5 flex-1 border border-zinc-800 hover:border-amber-700 flex overflow-hidden min-w-[22px]" title={p.name}>
-                      {p.colors.map((c,i)=><span key={i} style={{background:c,flex:1}}/>)}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  {displayPalette.map(entry=>(
-                    <div key={entry.id} className="flex items-center gap-2">
-                      <div className="swatch relative w-7 h-7 border border-zinc-700 shrink-0">
-                        <input type="color" value={entry.color} onChange={e=>updateColor(entry.id,e.target.value)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
-                        <div className="w-full h-full" style={{background:entry.color}}/>
+              <Panel label="Color">
+                <Field label="Mode">
+                  <Segmented options={[['palette','Palette'],['adaptive','Adaptive']]} value={dcolor} onChange={setDcolor}/>
+                </Field>
+                {dcolor==='adaptive' ? <>
+                  <NumSlider label="Colors" value={adaptiveCount} min={2} max={16} step={1} onChange={setAdaptiveCount}/>
+                  <div className="text-xs text-zinc-600 leading-relaxed">Builds a palette from the photo's own colours and maps each pixel to the nearest — the image keeps its real hues instead of a fixed look.</div>
+                </> : <>
+                  <Field label="Palette">
+                    <Dropdown value={paletteKey||'__custom'}
+                      onChange={k=>{ if(k!=='__custom') applyPalettePreset(k); }}
+                      options={(paletteKey?[]:[['__custom','Custom']]).concat(Object.entries(PALETTE_PRESETS).map(([k,p])=>[k,p.name]))}
+                      preview={k=>{ const cols=k==='__custom'?displayPalette.map(e=>e.color):PALETTE_PRESETS[k].colors;
+                        return <span className="flex h-3.5 w-11 overflow-hidden border border-zinc-700">{cols.map((c,i)=><span key={i} style={{background:c,flex:1}}/>)}</span>; }}/>
+                  </Field>
+                  <div className="flex flex-col gap-1.5">
+                    {displayPalette.map(entry=>(
+                      <div key={entry.id} className="flex items-center gap-2">
+                        <div className="swatch relative w-7 h-7 border border-zinc-700 shrink-0">
+                          <input type="color" value={entry.color} onChange={e=>updateColor(entry.id,e.target.value)}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
+                          <div className="w-full h-full" style={{background:entry.color}}/>
+                        </div>
+                        <input type="range" min={0} max={1} step={0.01} value={entry.anchor}
+                          onChange={e=>updateAnchor(entry.id,parseFloat(e.target.value))} className="flex-1"/>
+                        {palette.length>2 &&
+                          <button onClick={()=>removeColor(entry.id)} title="remove color" aria-label="remove color"
+                            className="remove-btn text-zinc-600 hover:text-amber-400 w-4 flex items-center justify-center shrink-0">
+                            <X size={10}/>
+                          </button>}
                       </div>
-                      <input type="range" min={0} max={1} step={0.01} value={entry.anchor}
-                        onChange={e=>updateAnchor(entry.id,parseFloat(e.target.value))} className="flex-1"/>
-                      {palette.length>2 &&
-                        <button onClick={()=>removeColor(entry.id)} title="remove color" aria-label="remove color"
-                          className="remove-btn text-zinc-600 hover:text-amber-400 w-4 flex items-center justify-center shrink-0">
-                          <X size={10}/>
-                        </button>}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-between text-xs text-zinc-700 mt-1"><span>shadows</span><span>highlights</span></div>
-                {palette.length===2 &&
-                  <button onClick={invertPalette}
-                    className="tap-target mt-1 w-full py-1 border border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1.5 text-xs">
-                    <ArrowLeftRight size={10}/> invert
-                  </button>}
-                {palette.length<5 &&
-                  <button onClick={addColor}
-                    className="mt-1 w-full py-1 border border-dashed border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1 text-xs">
-                    <Plus size={10}/> add color
-                  </button>}
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-xs text-zinc-700 mt-1"><span>shadows</span><span>highlights</span></div>
+                  {palette.length===2 &&
+                    <button onClick={invertPalette}
+                      className="tap-target mt-1 w-full py-1 border border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1.5 text-xs">
+                      <ArrowLeftRight size={10}/> invert
+                    </button>}
+                  {palette.length<5 &&
+                    <button onClick={addColor}
+                      className="mt-1 w-full py-1 border border-dashed border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1 text-xs">
+                      <Plus size={10}/> add color
+                    </button>}
+                </>}
               </Panel>
             </div>}
 
@@ -1282,7 +1372,7 @@ function Field({label,children}) {
 }
 
 // Custom dropdown for many-option selectors: filled box + value + chevron, popover list.
-function Dropdown({options,value,onChange}) {
+function Dropdown({options,value,onChange,preview}) {
   const [open,setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -1295,16 +1385,22 @@ function Dropdown({options,value,onChange}) {
   return (
     <div ref={ref} className="relative">
       <button onClick={()=>setOpen(o=>!o)}
-        className="tap-target w-full flex items-center justify-between px-2.5 py-2 border border-zinc-700 text-xs text-zinc-200 hover:border-zinc-600 transition-colors">
-        <span>{current?current[1]:'—'}</span>
-        <ChevronDown size={12} className={`text-zinc-500 transition-transform ${open?'rotate-180':''}`}/>
+        className="tap-target w-full flex items-center justify-between gap-2 px-2.5 py-2 border border-zinc-700 text-xs text-zinc-200 hover:border-zinc-600 transition-colors">
+        <span className="truncate">{current?current[1]:'—'}</span>
+        <span className="flex items-center gap-1.5 shrink-0">
+          {preview && preview(value)}
+          <ChevronDown size={12} className={`text-zinc-500 transition-transform ${open?'rotate-180':''}`}/>
+        </span>
       </button>
       {open &&
         <div className="absolute z-20 mt-1 left-0 right-0 max-h-64 overflow-y-auto border border-zinc-700 bg-zinc-900 shadow-xl">
           {options.map(([v,l,desc])=>(
             <button key={v} onClick={()=>{onChange(v); setOpen(false);}}
               className={`w-full text-left px-2.5 py-2 transition-colors ${v===value?'bg-amber-950/40':'hover:bg-zinc-800'}`}>
-              <div className={`text-xs ${v===value?'text-amber-100':'text-zinc-300'}`}>{l}</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className={`text-xs truncate ${v===value?'text-amber-100':'text-zinc-300'}`}>{l}</div>
+                {preview && preview(v)}
+              </div>
               {desc && <div className="text-[10px] text-zinc-500 break-all mt-0.5">{desc}</div>}
             </button>
           ))}
