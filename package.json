@@ -12,6 +12,7 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.3.1",
     "@vitejs/plugin-react": "^6.0.1",
+    "gifenc": "^1.0.3",
     "lucide-react": "^1.20.0",
     "lz-string": "^1.5.0",
     "react": "^19.2.6",
