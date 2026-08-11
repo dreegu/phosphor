@@ -135,7 +135,7 @@ const LOOK_PRESETS = [
   { name:'CASTLEVANIA', ref:'Castlevania (1986)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000010',anchor:0},{color:'#880000',anchor:0.5},{color:'#f0e8d0',anchor:1}], detail:28, contrast:50, midtones:0.9, highlights:1.1, shadows:1.3 } },
   { name:'ASTRAL CHAIN', ref:'Astral Chain (2019)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#110022',anchor:0.2},{color:'#0044ff',anchor:0.55},{color:'#ffffff',anchor:1}], detail:40, contrast:65, midtones:0.8, highlights:1.3, shadows:1.2, phosphorGlow:50, chromaShift:3 } },
   { name:'SHOVEL KNIGHT', ref:'Shovel Knight (2014)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#1a0044',anchor:0.33},{color:'#6600aa',anchor:0.66},{color:'#e8d888',anchor:1}], detail:20, contrast:50, midtones:0.9, highlights:1.1 } },
-  { name:'STARDEW VALLEY', ref:'Stardew Valley (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#1a3a10',anchor:0},{color:'#2a6a40',anchor:0.2},{color:'#88bb44',anchor:0.6},{color:'#ffe8a8',anchor:1}], detail:24, contrast:20, midtones:1.2, highlights:0.9, shadows:0.85 } },
+  { name:'STARDEW VALLEY', ref:'Stardew Valley (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0d2818',anchor:0},{color:'#1e5631',anchor:0.12},{color:'#7ac74f',anchor:0.5},{color:'#ffd23f',anchor:0.72},{color:'#ff8fb1',anchor:1}], detail:24, contrast:24, midtones:1.15, highlights:0.9, shadows:0.85 } },
   { name:'OUTRUN', ref:'OutRun (1986)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0020',anchor:0},{color:'#660066',anchor:0.3},{color:'#cc0088',anchor:0.65},{color:'#ffee00',anchor:1}], detail:34, contrast:50, midtones:0.9, highlights:1.2, shadows:1.2, phosphorGlow:35 } },
   { name:'HAL 9000', ref:'2001: A Space Odyssey (1968)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0000',anchor:0},{color:'#3d0000',anchor:0.4},{color:'#8b0000',anchor:0.65},{color:'#cc2200',anchor:0.85},{color:'#ff6644',anchor:1}], detail:40, contrast:30, midtones:1.2, highlights:0.85, shadows:1.2, phosphorGlow:20, scanlines:50 } },
   { name:'BLADE RUNNER', ref:'Blade Runner (1982)', settings:{ mode:'halftone', htShape:'circle', htInk:'#1a0a00', htPaper:'#c8762a', htAngle:30, detail:42, contrast:25, midtones:1.1, highlights:0.9, phosphorGlow:35 } },
@@ -148,22 +148,22 @@ const LOOK_PRESETS = [
   { name:'HER', ref:'Her (2013)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#2d0f0f',anchor:0},{color:'#7a3030',anchor:0.2},{color:'#c47850',anchor:0.5},{color:'#e8b090',anchor:0.78},{color:'#faeae0',anchor:1}], detail:48, contrast:15, midtones:1.3, highlights:0.85, shadows:0.85, phosphorGlow:40 } },
   { name:'ARRIVAL', ref:'Arrival (2016)', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0f1a', htPaper:'#8899aa', htAngle:60, detail:50, contrast:20, phosphorGlow:20 } },
   { name:'VIDEODROME', ref:'Videodrome (1983)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a0008',anchor:0},{color:'#330022',anchor:0.2},{color:'#882244',anchor:0.5},{color:'#cc6688',anchor:0.78},{color:'#ffddee',anchor:1}], detail:48, contrast:35, highlights:1.1, shadows:0.85, scanlines:35, noise:60, chromaShift:6 } },
-  { name:'BRAZIL', ref:'Brazil (1985)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0f0a00',anchor:0},{color:'#4a3800',anchor:0.25},{color:'#8a6a20',anchor:0.5},{color:'#c8a850',anchor:0.75},{color:'#f5e8b0',anchor:1}], detail:40, contrast:25, midtones:1.1, highlights:0.9 } },
+  { name:'BRAZIL', ref:'Brazil (1985)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0f0a00',anchor:0},{color:'#4a3800',anchor:0.16},{color:'#8a6a20',anchor:0.4},{color:'#c8a850',anchor:0.6},{color:'#8fd0ff',anchor:1}], detail:40, contrast:25, midtones:1.1, highlights:0.95 } },
   { name:'PAPRIKA', ref:'Paprika (2006)', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, detail:42, phosphorGlow:30 } },
   { name:'2046', ref:'2046 (2004)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a0000',anchor:0},{color:'#3d0010',anchor:0.2},{color:'#880030',anchor:0.5},{color:'#cc4422',anchor:0.78},{color:'#f0c060',anchor:1}], detail:48, contrast:20, midtones:1.2, highlights:0.8, shadows:0.82, phosphorGlow:45 } },
   { name:'STRANGE DAYS', ref:'Strange Days (1995)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050010',anchor:0},{color:'#1a0044',anchor:0.2},{color:'#5500aa',anchor:0.5},{color:'#cc44ff',anchor:0.78},{color:'#f0ccff',anchor:1}], detail:48, contrast:45, midtones:0.95, highlights:1.15, scanlines:25, chromaShift:3 } },
-  { name:'WINGS OF HONNEAMISE', ref:'Wings of Honneamise (1987)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a1020',anchor:0},{color:'#1a3050',anchor:0.2},{color:'#4488aa',anchor:0.5},{color:'#88ccdd',anchor:0.78},{color:'#e8f4f8',anchor:1}], detail:48, contrast:15, midtones:1.2, highlights:0.85, shadows:0.85, phosphorGlow:20 } },
+  { name:'WINGS OF HONNEAMISE', ref:'Wings of Honneamise (1987)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a1020',anchor:0},{color:'#12304f',anchor:0.16},{color:'#4488aa',anchor:0.42},{color:'#f0c060',anchor:0.78},{color:'#fff4e0',anchor:1}], detail:48, contrast:18, midtones:1.15, highlights:0.85, shadows:0.85, phosphorGlow:25 } },
   { name:'PARANOIA AGENT', ref:'Paranoia Agent (2004)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0010',anchor:0},{color:'#2a0044',anchor:0.2},{color:'#882288',anchor:0.5},{color:'#ffaacc',anchor:0.78},{color:'#fff0f8',anchor:1}], detail:40, contrast:40, highlights:1.1, scanlines:20, noise:30 } },
   { name:'BACK TO THE FUTURE', ref:'Back to the Future (1985)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000511',anchor:0},{color:'#001a44',anchor:0.3},{color:'#0044cc',anchor:0.6},{color:'#ff6600',anchor:0.85},{color:'#ffffff',anchor:1}], detail:40, contrast:55, midtones:0.85, highlights:1.3, shadows:1.25, phosphorGlow:50, chromaShift:2 } },
   { name:'INTERSTELLAR', ref:'Interstellar (2014)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#050200',anchor:0},{color:'#1a0800',anchor:0.4},{color:'#4a2000',anchor:0.65},{color:'#c87020',anchor:0.85},{color:'#f8e090',anchor:1}], detail:48, contrast:35, midtones:1.1, highlights:0.8, phosphorGlow:50 } },
   { name:'INCEPTION', ref:'Inception (2010)', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0c10', htPaper:'#9aa0aa', htAngle:35, detail:50, contrast:25, phosphorGlow:10 } },
   { name:'AVATAR', ref:'Avatar (2009)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#000814',anchor:0},{color:'#001a33',anchor:0.35},{color:'#003366',anchor:0.6},{color:'#0099aa',anchor:0.82},{color:'#44ffcc',anchor:1}], detail:48, contrast:45, highlights:1.2, shadows:1.2, phosphorGlow:60 } },
-  { name:'WESTWORLD', ref:'Westworld (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#060608',anchor:0},{color:'#1a1c20',anchor:0.25},{color:'#4a4c54',anchor:0.5},{color:'#9aa0aa',anchor:0.75},{color:'#f0f4f8',anchor:1}], detail:40, contrast:45, midtones:0.9, highlights:1.1, scanlines:30 } },
+  { name:'WESTWORLD', ref:'Westworld (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#060608',anchor:0},{color:'#1a1c20',anchor:0.22},{color:'#8b1a1a',anchor:0.5},{color:'#9aa0aa',anchor:0.72},{color:'#f0f4f8',anchor:1}], detail:40, contrast:45, midtones:0.9, highlights:1.1, scanlines:30 } },
   { name:'CYBERPUNK', ref:'Cyberpunk: Edgerunners (2022)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a0010',anchor:0},{color:'#330022',anchor:0.15},{color:'#880044',anchor:0.45},{color:'#ff0088',anchor:0.78},{color:'#ffee00',anchor:1}], detail:48, contrast:55, midtones:0.9, highlights:1.3, shadows:1.2, phosphorGlow:40, chromaShift:5 } },
-  { name:'COWBOY BEBOP', ref:'Cowboy Bebop (1998)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#080810',anchor:0},{color:'#1a1830',anchor:0.15},{color:'#4a3848',anchor:0.45},{color:'#c89050',anchor:0.78},{color:'#f8e0a0',anchor:1}], detail:48, contrast:30, midtones:1.15, highlights:0.85, shadows:0.85, phosphorGlow:25 } },
-  { name:'SERIAL EXP. LAIN', ref:'Serial Experiments Lain (1998)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#050508',anchor:0},{color:'#1a1a20',anchor:0.2},{color:'#444450',anchor:0.5},{color:'#aaaacc',anchor:0.78},{color:'#eeeeff',anchor:1}], detail:48, contrast:35, highlights:1.1, scanlines:40, noise:60, chromaShift:3 } },
-  { name:'PERFECT BLUE', ref:'Perfect Blue (1997)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000814',anchor:0},{color:'#001a44',anchor:0.2},{color:'#0044aa',anchor:0.5},{color:'#88aadd',anchor:0.78},{color:'#f0f4ff',anchor:1}], detail:48, contrast:40, midtones:1.05, highlights:0.95, shadows:0.88, scanlines:20 } },
-  { name:'NAUSICAÄ', ref:'Nausicaä of the Valley of the Wind (1984)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#100818',anchor:0},{color:'#3a2040',anchor:0.2},{color:'#7a5888',anchor:0.5},{color:'#88b8a0',anchor:0.78},{color:'#e8f0d0',anchor:1}], detail:48, contrast:20, midtones:1.2, highlights:0.9, phosphorGlow:15 } },
+  { name:'COWBOY BEBOP', ref:'Cowboy Bebop (1998)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#080810',anchor:0},{color:'#14202a',anchor:0.14},{color:'#1f5c66',anchor:0.4},{color:'#e0a13c',anchor:0.72},{color:'#f6e6b0',anchor:1}], detail:48, contrast:32, midtones:1.1, highlights:0.85, shadows:0.85, phosphorGlow:25 } },
+  { name:'SERIAL EXP. LAIN', ref:'Serial Experiments Lain (1998)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#050508',anchor:0},{color:'#1a1420',anchor:0.16},{color:'#6a3a2a',anchor:0.4},{color:'#d8a24a',anchor:0.62},{color:'#c8b8ff',anchor:1}], detail:48, contrast:35, highlights:1.1, scanlines:40, noise:60, chromaShift:3 } },
+  { name:'PERFECT BLUE', ref:'Perfect Blue (1997)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#00081c',anchor:0},{color:'#04246e',anchor:0.22},{color:'#ff3d81',anchor:0.5},{color:'#7fa8e8',anchor:0.74},{color:'#f2f4ff',anchor:1}], detail:48, contrast:42, midtones:1.05, highlights:0.95, shadows:0.88, scanlines:20 } },
+  { name:'NAUSICAÄ', ref:'Nausicaä of the Valley of the Wind (1984)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a0818',anchor:0},{color:'#241a3a',anchor:0.14},{color:'#5a3a7a',anchor:0.34},{color:'#3fbf9f',anchor:0.6},{color:'#eaf5a0',anchor:1}], detail:48, contrast:22, midtones:1.2, highlights:0.9, phosphorGlow:18 } },
   { name:'DOROHEDORO', ref:'Dorohedoro (2000)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#080808',anchor:0},{color:'#1c1c10',anchor:0.25},{color:'#444430',anchor:0.55},{color:'#888860',anchor:0.78},{color:'#44ff44',anchor:1}], detail:40, contrast:40, highlights:1.05, noise:40 } },
   { name:'SILENT HILL', ref:'Silent Hill (1999)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a0505',anchor:0},{color:'#2a1010',anchor:0.2},{color:'#6a3020',anchor:0.5},{color:'#aa7060',anchor:0.78},{color:'#e0c8b8',anchor:1}], detail:48, contrast:25, midtones:1.1, highlights:0.8, shadows:0.8, phosphorGlow:20, luminanceLift:10, noise:60 } },
   { name:'STREETS OF RAGE', ref:'Streets of Rage (1991)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000820',anchor:0},{color:'#001850',anchor:0.25},{color:'#0044aa',anchor:0.55},{color:'#ff8800',anchor:0.82},{color:'#ffeeaa',anchor:1}], detail:28, contrast:40, highlights:1.1, phosphorGlow:25 } },
@@ -178,6 +178,14 @@ const LOOK_PRESETS = [
   { name:'AMBER TERMINAL', ref:'Phosphor CRT Terminal', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#ffb000', asciiBg:'#140e06', asciiCutout:20, detail:57, phosphorGlow:30 } },
   { name:'BLOCK CHARS', ref:'Unicode Block Art', settings:{ mode:'ascii', asciiRamp:'blocks', asciiFg:'#c8d8e8', asciiBg:'#0a0a0e', asciiCutout:20, detail:43 } },
   { name:'NEON ASCII', ref:'Cyberpunk Terminal', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#ff00cc', asciiBg:'#040010', asciiCutout:22, detail:57, phosphorGlow:25 } },
+  { name:'ELECTRIC', ref:'Poster ASCII', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#f8f6f0', asciiBg:'#2c40d8', asciiInvert:true, asciiBold:false, asciiCutout:28, detail:65, contrast:20 } },
+  { name:'VAPORWAVE', ref:'A E S T H E T I C', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#ff71ce', asciiBg:'#2a0a4a', asciiInvert:true, asciiCutout:24, detail:57, phosphorGlow:20 } },
+  { name:'RISOGRAPH', ref:'Riso Print', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#141008', asciiBg:'#ff6a3d', asciiInvert:true, asciiCutout:26, detail:60, contrast:15 } },
+  { name:'BLUEPRINT', ref:'Drafting Table', settings:{ mode:'ascii', asciiRamp:'code', asciiFg:'#ffe14d', asciiBg:'#0a1f5c', asciiCutout:16, detail:55, contrast:15 } },
+  { name:'CMYK GLITCH', ref:'Misregistration', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#00e5ff', asciiBg:'#ff008c', asciiInvert:true, asciiCutout:22, detail:57, chromaShift:4 } },
+  { name:'TERMINAL GARDEN', ref:'Overgrown CRT', settings:{ mode:'ascii', asciiRamp:'symbols', asciiFg:'#eafce0', asciiBg:'#123b1e', asciiInvert:true, asciiCutout:22, detail:50, phosphorGlow:15 } },
+  { name:'RED ALERT', ref:'Warning Console', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#fff2f2', asciiBg:'#8b0000', asciiInvert:true, asciiCutout:20, detail:50, scanlines:25, phosphorGlow:15 } },
+  { name:'SUNSET BLOCKS', ref:'Dusk Mosaic', settings:{ mode:'ascii', asciiRamp:'blocks', asciiFg:'#ffd27a', asciiBg:'#2a0f3a', asciiInvert:true, asciiCutout:14, detail:42 } },
   { name:'RUST', ref:'Duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#7a2a10',anchor:0},{color:'#f0dcc0',anchor:1}], detail:40, contrast:35, midtones:1.1, highlights:0.9 } },
   { name:'NAVY', ref:'Duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a1428',anchor:0},{color:'#e8dfc8',anchor:1}], detail:40, contrast:35, midtones:1.1, highlights:0.9 } },
   { name:'FOREST', ref:'Duotone', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0a2010',anchor:0},{color:'#eef4e0',anchor:1}], detail:48, contrast:30, midtones:1.15, highlights:0.9 } },
@@ -292,6 +300,20 @@ function medianCutPalette(samples,n){
   }
   return boxes.map(box=>{let r=0,g=0,b=0;for(const p of box){r+=p[0];g+=p[1];b+=p[2];}const m=box.length;return [Math.round(r/m),Math.round(g/m),Math.round(b/m)];});
 }
+// RGB↔HSL so we can revive an adaptive palette. Median-cut returns the mean of each colour
+// box, and averaging always drifts toward grey — the reason adaptive output looks washed out
+// next to the source. We push saturation back up (and add a little tonal punch) so it reads
+// like pixel art, not a foggy day, while keeping each colour's own hue.
+function rgbToHsl(r,g,b){ r/=255;g/=255;b/=255; const mx=Math.max(r,g,b),mn=Math.min(r,g,b); let h=0,s=0,l=(mx+mn)/2;
+  if(mx!==mn){ const d=mx-mn; s=l>0.5?d/(2-mx-mn):d/(mx+mn);
+    h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4; h/=6; } return [h,s,l]; }
+function hslToRgb(h,s,l){ if(s===0){const v=Math.round(l*255);return [v,v,v];}
+  const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+  const f=t=>{ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+  return [Math.round(f(h+1/3)*255),Math.round(f(h)*255),Math.round(f(h-1/3)*255)]; }
+function vividPalette(pal,satMul=1.45,contrast=1.12){
+  return pal.map(([r,g,b])=>{ let [h,s,l]=rgbToHsl(r,g,b); s=Math.min(1,s*satMul); l=Math.max(0,Math.min(1,0.5+(l-0.5)*contrast)); return hslToRgb(h,s,l); });
+}
 // Dither the image toward a palette derived FROM the image (hue preserved). Fills `out`; returns the palette.
 function ditherAdaptive(data,sw,sh,out,algo,getY,n){
   const total=sw*sh;
@@ -303,7 +325,7 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n){
   }
   const stride=Math.max(1,Math.floor(total/4000)), samples=[];
   for(let i=0;i<total;i+=stride) samples.push([R[i],G[i],B[i]]);
-  const pal=medianCutPalette(samples, Math.max(2,Math.min(16,n||8)));
+  const pal=vividPalette(medianCutPalette(samples, Math.max(2,Math.min(16,n||8))));
   const ordered = algo==='bayer'||algo==='cross'||algo==='bluenoise';
   if(ordered){
     const{matrix,size,max}=algo==='bluenoise'?getBlueNoise():ORDERED_PATTERNS[algo];
