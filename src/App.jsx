@@ -1625,12 +1625,7 @@ export default function Phosphor() {
                   </>
                 )}
               </Panel>
-              <Panel label="Detail">
-                <NumSlider label="Detail" value={detail} min={0} max={100} step={1}
-                  onChange={setDetail} disabled={mode==='dither'&&resLock&&!!sourceDevice}
-                  hint={mode==='dither'&&resLock&&sourceDevice?`${effectivePx}px`:undefined}/>
-                <div className="text-xs text-zinc-600 leading-relaxed">The one knob you'll reach for most — raise for finer cells, lower for chunkier. Everything else lives in the Edit tab.</div>
-              </Panel>
+              <div className="text-xs text-zinc-600 leading-relaxed px-4 py-3">Pick a look or device, then fine-tune it in the Edit tab.</div>
             </div>}
 
             {activeTab==='edit' && <div className="anim-fadein flex flex-col">
@@ -1779,6 +1774,13 @@ export default function Phosphor() {
             </div>}
 
             <div className="pb-2"/>
+
+            {activeTab==='presets' &&
+              <div className="sticky bottom-0 mt-auto bg-zinc-950/95 backdrop-blur border-t border-zinc-800 px-4 py-3">
+                <NumSlider label="Detail" value={detail} min={0} max={100} step={1}
+                  onChange={setDetail} disabled={mode==='dither'&&resLock&&!!sourceDevice}
+                  hint={mode==='dither'&&resLock&&sourceDevice?`${effectivePx}px`:undefined}/>
+              </div>}
             </div>
           </div>
         </div>
