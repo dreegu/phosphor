@@ -127,6 +127,7 @@ const LOOK_PRESETS = [
   { name:'METROPOLIS', ref:'Metropolis (1927)', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0808', htPaper:'#f0ece4', htAngle:45, detail:42, contrast:20, midtones:1.1, highlights:0.9 } },
   { name:'LA JETÉE', ref:'La Jetée (1962)', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0808', htPaper:'#e8e4dc', htAngle:45, detail:60, contrast:15, midtones:1.2, highlights:0.85 } },
   { name:'AKIRA MANGA', ref:'Akira (1982)', settings:{ mode:'halftone', htShape:'square', htInk:'#0a0808', htPaper:'#f4f0e8', htAngle:45, detail:55, contrast:30 } },
+  { name:'WONKA', ref:'Willy Wonka & the Chocolate Factory (1971)', settings:{ mode:'halftone', htShape:'diamond', htInk:'#1400a8', htPaper:'#ff600a', htAngle:9, detail:100, contrast:82, midtones:1.35, shadows:2.5, phosphorGlow:35 } },
   { name:'STRANGER THINGS', ref:'Stranger Things (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#660000',anchor:0.35},{color:'#ffffff',anchor:1}], detail:40, contrast:70, midtones:0.7, highlights:1.4, shadows:1.25, phosphorGlow:40, noise:50 } },
   { name:'METAL GEAR', ref:'Metal Gear Solid (1998)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#050a05',anchor:0},{color:'#304430',anchor:0.5},{color:'#c8e0b0',anchor:1}], detail:40, contrast:30, midtones:1.1, highlights:0.9, shadows:1.2, phosphorGlow:15, scanlines:50 } },
   { name:'STALKER', ref:'Stalker (1979)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0c0a08',anchor:0},{color:'#8a7e6c',anchor:0.45},{color:'#f0ece4',anchor:1}], detail:48, contrast:8, midtones:1.5, highlights:0.65, shadows:0.72, phosphorGlow:12, luminanceLift:12 } },
@@ -135,7 +136,7 @@ const LOOK_PRESETS = [
   { name:'CASTLEVANIA', ref:'Castlevania (1986)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000010',anchor:0},{color:'#880000',anchor:0.5},{color:'#f0e8d0',anchor:1}], detail:28, contrast:50, midtones:0.9, highlights:1.1, shadows:1.3 } },
   { name:'ASTRAL CHAIN', ref:'Astral Chain (2019)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#110022',anchor:0.2},{color:'#0044ff',anchor:0.55},{color:'#ffffff',anchor:1}], detail:40, contrast:65, midtones:0.8, highlights:1.3, shadows:1.2, phosphorGlow:50, chromaShift:3 } },
   { name:'SHOVEL KNIGHT', ref:'Shovel Knight (2014)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#1a0044',anchor:0.33},{color:'#6600aa',anchor:0.66},{color:'#e8d888',anchor:1}], detail:20, contrast:50, midtones:0.9, highlights:1.1 } },
-  { name:'STARDEW VALLEY', ref:'Stardew Valley (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0d2818',anchor:0},{color:'#1e5631',anchor:0.12},{color:'#7ac74f',anchor:0.5},{color:'#ffd23f',anchor:0.72},{color:'#ff8fb1',anchor:1}], detail:24, contrast:24, midtones:1.15, highlights:0.9, shadows:0.85 } },
+  { name:'STARDEW VALLEY', ref:'Stardew Valley (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0d2818',anchor:0.04},{color:'#1e5631',anchor:0.29},{color:'#7ac74f',anchor:0.55},{color:'#ffd23f',anchor:0.67},{color:'#ff8fb1',anchor:0.89}], detail:50, contrast:17, midtones:1.05, highlights:0.75, shadows:1.2 } },
   { name:'OUTRUN', ref:'OutRun (1986)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0020',anchor:0},{color:'#660066',anchor:0.3},{color:'#cc0088',anchor:0.65},{color:'#ffee00',anchor:1}], detail:34, contrast:50, midtones:0.9, highlights:1.2, shadows:1.2, phosphorGlow:35 } },
   { name:'HAL 9000', ref:'2001: A Space Odyssey (1968)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0000',anchor:0},{color:'#3d0000',anchor:0.4},{color:'#8b0000',anchor:0.65},{color:'#cc2200',anchor:0.85},{color:'#ff6644',anchor:1}], detail:40, contrast:30, midtones:1.2, highlights:0.85, shadows:1.2, phosphorGlow:20, scanlines:50 } },
   { name:'BLADE RUNNER', ref:'Blade Runner (1982)', settings:{ mode:'halftone', htShape:'circle', htInk:'#1a0a00', htPaper:'#c8762a', htAngle:30, detail:42, contrast:25, midtones:1.1, highlights:0.9, phosphorGlow:35 } },
@@ -159,7 +160,7 @@ const LOOK_PRESETS = [
   { name:'INCEPTION', ref:'Inception (2010)', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0c10', htPaper:'#9aa0aa', htAngle:35, detail:50, contrast:25, phosphorGlow:10 } },
   { name:'AVATAR', ref:'Avatar (2009)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#000814',anchor:0},{color:'#001a33',anchor:0.35},{color:'#003366',anchor:0.6},{color:'#0099aa',anchor:0.82},{color:'#44ffcc',anchor:1}], detail:48, contrast:45, highlights:1.2, shadows:1.2, phosphorGlow:60 } },
   { name:'WESTWORLD', ref:'Westworld (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#060608',anchor:0},{color:'#1a1c20',anchor:0.22},{color:'#8b1a1a',anchor:0.5},{color:'#9aa0aa',anchor:0.72},{color:'#f0f4f8',anchor:1}], detail:40, contrast:45, midtones:0.9, highlights:1.1, scanlines:30 } },
-  { name:'CYBERPUNK', ref:'Cyberpunk: Edgerunners (2022)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a0010',anchor:0},{color:'#330022',anchor:0.15},{color:'#880044',anchor:0.45},{color:'#ff0088',anchor:0.78},{color:'#ffee00',anchor:1}], detail:48, contrast:55, midtones:0.9, highlights:1.3, shadows:1.2, phosphorGlow:40, chromaShift:5 } },
+  { name:'CYBERPUNK', ref:'Cyberpunk: Edgerunners (2022)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0a0010',anchor:0},{color:'#330022',anchor:0.03},{color:'#880044',anchor:0.23},{color:'#ff0088',anchor:0.62},{color:'#ffee00',anchor:0.94}], detail:48, contrast:55, midtones:0.9, highlights:1.3, phosphorGlow:40, scanlines:10, chromaShift:1.5 } },
   { name:'COWBOY BEBOP', ref:'Cowboy Bebop (1998)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#080810',anchor:0},{color:'#14202a',anchor:0.14},{color:'#1f5c66',anchor:0.4},{color:'#e0a13c',anchor:0.72},{color:'#f6e6b0',anchor:1}], detail:48, contrast:32, midtones:1.1, highlights:0.85, shadows:0.85, phosphorGlow:25 } },
   { name:'SERIAL EXP. LAIN', ref:'Serial Experiments Lain (1998)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#050508',anchor:0},{color:'#1a1420',anchor:0.16},{color:'#6a3a2a',anchor:0.4},{color:'#d8a24a',anchor:0.62},{color:'#c8b8ff',anchor:1}], detail:48, contrast:35, highlights:1.1, scanlines:40, noise:60, chromaShift:3 } },
   { name:'PERFECT BLUE', ref:'Perfect Blue (1997)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#00081c',anchor:0},{color:'#04246e',anchor:0.22},{color:'#ff3d81',anchor:0.5},{color:'#7fa8e8',anchor:0.74},{color:'#f2f4ff',anchor:1}], detail:48, contrast:42, midtones:1.05, highlights:0.95, shadows:0.88, scanlines:20 } },
@@ -576,11 +577,16 @@ function makeGetY(s){
 function renderSettingsToCanvas(img,s,w,h){
   const getY=makeGetY(s);
   const mode=s.mode||'halftone';
-  const sizeFor=(m,legacy)=> s.detail!==undefined ? detailToSize(m,s.detail) : (legacy);
+  // The live preview renders at ~900px on its long side. Scale the pattern size to THIS
+  // canvas's size so a 160px thumbnail (or a 480px GIF frame) shows the same cell density
+  // as the preview — otherwise the cells stay full-size while the image shrinks and the
+  // thumbnail looks far chunkier than the real output.
+  const scale=Math.max(0.05,Math.min(1,Math.max(w,h)/900));
+  const sizeFor=(m,legacy)=> (s.detail!==undefined ? detailToSize(m,s.detail) : legacy) * scale;
   let canvas;
   if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,sizeFor('dither',s.pixelSize||5)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount});
-  else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:sizeFor('ascii',s.asciiSize||8),getY,invert:s.asciiInvert,cutout:s.asciiCutout,bold:s.asciiBold!==false});
-  else canvas=renderHalftone({img,w,h,shape:s.htShape||'circle',dotSize:sizeFor('halftone',s.htSize||3.5),angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY});
+  else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:Math.max(3,sizeFor('ascii',s.asciiSize||8)),getY,invert:s.asciiInvert,cutout:s.asciiCutout,bold:s.asciiBold!==false});
+  else canvas=renderHalftone({img,w,h,shape:s.htShape||'circle',dotSize:Math.max(0.8,sizeFor('halftone',s.htSize||3.5)),angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY});
   const darkColor=mode==='dither'?(([...(s.palette||[])].sort((a,b)=>a.anchor-b.anchor)[0]||{}).color||'#000'):mode==='ascii'?(s.asciiBg||'#000'):'#000';
   applyAtmosphere(canvas,{phosphorGlow:s.phosphorGlow||0,luminanceLift:s.luminanceLift||0,scanlines:s.scanlines||0,noise:s.noise||0,chromaShift:s.chromaShift||0,darkColor});
   return canvas;
@@ -1085,7 +1091,7 @@ export default function Phosphor() {
     img.onload = () => {
       if (cancelled) return;
       setLookThumbs({});   // drop stale thumbnails of the previous image
-      const W = 160, H = Math.max(1, Math.round(W * img.naturalHeight / img.naturalWidth));
+      const W = 200, H = Math.max(1, Math.round(W * img.naturalHeight / img.naturalWidth));
       let i = 0;
       const step = () => {
         if (cancelled) return;
@@ -1619,7 +1625,12 @@ export default function Phosphor() {
                   </>
                 )}
               </Panel>
-              <div className="text-xs text-zinc-600 leading-relaxed px-4 py-3">Pick a look or device, then fine-tune it in the Edit tab.</div>
+              <Panel label="Detail">
+                <NumSlider label="Detail" value={detail} min={0} max={100} step={1}
+                  onChange={setDetail} disabled={mode==='dither'&&resLock&&!!sourceDevice}
+                  hint={mode==='dither'&&resLock&&sourceDevice?`${effectivePx}px`:undefined}/>
+                <div className="text-xs text-zinc-600 leading-relaxed">The one knob you'll reach for most — raise for finer cells, lower for chunkier. Everything else lives in the Edit tab.</div>
+              </Panel>
             </div>}
 
             {activeTab==='edit' && <div className="anim-fadein flex flex-col">
