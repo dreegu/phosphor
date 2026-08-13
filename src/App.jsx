@@ -113,40 +113,14 @@ function sizeToDetail(mode, size){
 
 // Look categories, in display order.
 const CATEGORIES = [
-  ['duotone','Duotone'], ['riso','Riso'], ['pop','Pop'],
-  ['soft','Soft'], ['onebit','1-Bit'], ['hardware','Hardware'], ['type','Type'],
+  ['hardware','Hardware'], ['soft','Soft'], ['cinematic','Cinematic'], ['poster','Poster'],
+  ['vivid','Vivid'], ['duotone','Duotone'], ['mono','Monochrome'], ['riso','Riso'], ['type','Type'],
 ];
 
 // Curated looks. A look sets colour + tone + mode, but NOT detail — that stays the
 // user's, global. The exceptions carry `detail` and set carriesDetail:true (Hardware
 // devices at native resolution, and STIPPLE); those stash and restore the user's detail.
 const LOOK_PRESETS = [
-  // ── Duotone ──
-  { name:'ROSE', category:'duotone', settings:{ mode:'halftone', htShape:'circle', htInk:'#4a1020', htPaper:'#f6d5c9', htAngle:45, contrast:20, midtones:1.1, highlights:0.9 } },
-  { name:'RUST', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#7a2a10',anchor:0},{color:'#f0dcc0',anchor:1}], contrast:35, midtones:1.1, highlights:0.9 } },
-  { name:'NAVY', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a1428',anchor:0},{color:'#e8dfc8',anchor:1}], contrast:35, midtones:1.1, highlights:0.9 } },
-  { name:'FOREST', category:'duotone', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0a2010',anchor:0},{color:'#eef4e0',anchor:1}], contrast:30, midtones:1.15, highlights:0.9 } },
-  { name:'VIOLET', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#1a0838',anchor:0},{color:'#e8e0f4',anchor:1}], contrast:40 } },
-  // ── Riso ──
-  { name:'AKIRA MANGA', category:'riso', settings:{ mode:'halftone', htShape:'square', htInk:'#0a0808', htPaper:'#f4f0e8', htAngle:45, contrast:30 } },
-  { name:'PAPRIKA', category:'riso', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, phosphorGlow:30 } },
-  { name:'BLADE RUNNER', category:'riso', settings:{ mode:'halftone', htShape:'circle', htInk:'#1a0a00', htPaper:'#c8762a', htAngle:30, contrast:25, midtones:1.1, highlights:0.9, phosphorGlow:35 } },
-  { name:'ARRIVAL', category:'riso', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0f1a', htPaper:'#8899aa', htAngle:60, contrast:20, phosphorGlow:20 } },
-  { name:'JOURNEY', category:'riso', settings:{ mode:'halftone', htShape:'line', htInk:'#3a1a00', htPaper:'#f0c860', htAngle:0, contrast:20, midtones:1.1, highlights:0.9, phosphorGlow:25 } },
-  { name:'DUSK', category:'riso', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#101826',anchor:0},{color:'#3a4a3a',anchor:0.3},{color:'#e8785a',anchor:0.64},{color:'#f0d8b0',anchor:0.92}], contrast:35, midtones:0.95, highlights:1.1, shadows:1.2 } },
-  // ── Pop ──
-  { name:'CYBERPUNK', category:'pop', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0a0010',anchor:0},{color:'#330022',anchor:0.03},{color:'#880044',anchor:0.23},{color:'#ff0088',anchor:0.62},{color:'#ffee00',anchor:0.94}], contrast:55, midtones:0.9, highlights:1.3, phosphorGlow:40, scanlines:10, chromaShift:1.5 } },
-  { name:'AVATAR', category:'pop', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#000814',anchor:0},{color:'#001a33',anchor:0.35},{color:'#003366',anchor:0.6},{color:'#0099aa',anchor:0.82},{color:'#44ffcc',anchor:1}], contrast:45, highlights:1.2, shadows:1.2, phosphorGlow:60 } },
-  { name:'STREETS OF RAGE', category:'pop', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000820',anchor:0},{color:'#001850',anchor:0.25},{color:'#0044aa',anchor:0.55},{color:'#ff8800',anchor:0.82},{color:'#ffeeaa',anchor:1}], contrast:40, highlights:1.1, phosphorGlow:25 } },
-  // ── Soft ──
-  { name:'HER', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#2d0f0f',anchor:0},{color:'#7a3030',anchor:0.2},{color:'#c47850',anchor:0.5},{color:'#e8b090',anchor:0.78},{color:'#faeae0',anchor:1}], contrast:15, midtones:1.3, highlights:0.85, shadows:0.85, phosphorGlow:40 } },
-  { name:'CELESTE', category:'soft', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#1a0a20',anchor:0},{color:'#3a2050',anchor:0.2},{color:'#c07090',anchor:0.55},{color:'#e8b8a0',anchor:0.82},{color:'#f8f0e0',anchor:1}], contrast:20, midtones:1.25, highlights:0.85, shadows:0.85, phosphorGlow:20 } },
-  { name:'DISCO ELYSIUM', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0c0c10',anchor:0},{color:'#2a2820',anchor:0.16},{color:'#4a4438',anchor:0.33},{color:'#6a6440',anchor:0.5},{color:'#8a8050',anchor:0.66},{color:'#b0a870',anchor:0.83},{color:'#e8e0b8',anchor:1}], highlights:0.9, shadows:1.5 } },
-  // ── 1-Bit ──
-  { name:'2001', category:'onebit', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], contrast:55, midtones:0.85, highlights:1.2, shadows:1.35 } },
-  { name:'GATTACA', category:'onebit', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#141810',anchor:0},{color:'#c8b46c',anchor:1}], contrast:40, highlights:0.95 } },
-  { name:'HOLLOW KNIGHT', category:'onebit', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#d8e8f8',anchor:1}], contrast:45, midtones:0.95, highlights:1.1 } },
-  { name:'STIPPLE', category:'onebit', carriesDetail:true, settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050505',anchor:0},{color:'#f4f2ec',anchor:1}], detail:72, contrast:40, midtones:0.9, highlights:1.15, shadows:1.3 } },
   // ── Hardware (adaptive + device gamut, native resolution) ──
   { name:'GAME BOY', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gameboy', detail:30 } },
   { name:'GAME BOY COLOR', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gbcolor', detail:30 } },
@@ -155,6 +129,44 @@ const LOOK_PRESETS = [
   { name:'AMIGA', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'amiga', detail:46 } },
   { name:'ATARI ST', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'atarist', detail:46 } },
   { name:'MACINTOSH', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], detail:55 } },
+  // ── Soft ──
+  { name:'HER', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#2d0f0f',anchor:0},{color:'#7a3030',anchor:0.2},{color:'#c47850',anchor:0.5},{color:'#e8b090',anchor:0.78},{color:'#faeae0',anchor:1}], contrast:15, midtones:1.3, highlights:0.85, shadows:0.85, phosphorGlow:40 } },
+  { name:'CELESTE', category:'soft', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#1a0a20',anchor:0},{color:'#3a2050',anchor:0.2},{color:'#c07090',anchor:0.55},{color:'#e8b8a0',anchor:0.82},{color:'#f8f0e0',anchor:1}], contrast:20, midtones:1.25, highlights:0.85, shadows:0.85, phosphorGlow:20 } },
+  { name:'SILENT HILL', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0c0c10',anchor:0},{color:'#2c2121',anchor:0.16},{color:'#5f534e',anchor:0.33},{color:'#7b7656',anchor:0.5},{color:'#a8a180',anchor:0.66},{color:'#cfcaab',anchor:0.83},{color:'#e9e5d3',anchor:1}], midtones:0.95, phosphorGlow:30, luminanceLift:10 } },
+  { name:'PERFECT BLUE', category:'soft', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#030726',anchor:0},{color:'#172445',anchor:0.1},{color:'#082c76',anchor:0.18},{color:'#2477b7',anchor:0.31},{color:'#a6cbcd',anchor:0.69},{color:'#f3f4e6',anchor:1}], contrast:-11, midtones:1.1, highlights:1.5, shadows:1.2 } },
+  { name:'METAL GEAR SOLID', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#041513',anchor:0.08},{color:'#1a5148',anchor:0.14},{color:'#117449',anchor:0.25},{color:'#3a9862',anchor:0.32},{color:'#83ce92',anchor:0.78},{color:'#a5dfc4',anchor:0.84},{color:'#d0e2da',anchor:0.95}], phosphorGlow:15, luminanceLift:30, scanlines:20 } },
+  { name:'GHOST IN THE SHELL', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#1a1d1f',anchor:0.08},{color:'#21313f',anchor:0.13},{color:'#38658c',anchor:0.25},{color:'#7ac0e3',anchor:0.52},{color:'#7ac0e3',anchor:0.72},{color:'#ddc292',anchor:1}], contrast:-10, midtones:0.75, highlights:1.3, shadows:1.05, phosphorGlow:20, luminanceLift:20 } },
+  // ── Cinematic ──
+  { name:'STRANGER THINGS', category:'cinematic', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#030726',anchor:0},{color:'#172445',anchor:0.1},{color:'#082c76',anchor:0.18},{color:'#b12323',anchor:0.33},{color:'#a6cbcd',anchor:0.69},{color:'#f3f4e6',anchor:1}], contrast:-11, midtones:1.1, highlights:1.5, shadows:1.2 } },
+  { name:'VIDEODROME', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0e132b',anchor:0.08},{color:'#035a8f',anchor:0.27},{color:'#9f3e8c',anchor:0.36},{color:'#c50012',anchor:0.46},{color:'#ea7d9c',anchor:0.52},{color:'#86b5c4',anchor:0.67},{color:'#3ac6bd',anchor:0.76},{color:'#e3ead9',anchor:0.92}], contrast:1 } },
+  { name:'EDGERUNNERS', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#061012',anchor:0.04},{color:'#1f4240',anchor:0.19},{color:'#1f706b',anchor:0.37},{color:'#847ab7',anchor:0.46},{color:'#76c1a1',anchor:0.63},{color:'#e8f901',anchor:0.75},{color:'#c7dee5',anchor:0.83},{color:'#ece0f0',anchor:0.97}], phosphorGlow:18, luminanceLift:13 } },
+  { name:'BACK TO THE FUTURE', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#16171d',anchor:0},{color:'#050f3e',anchor:0.08},{color:'#1a2a67',anchor:0.22},{color:'#b15527',anchor:0.39},{color:'#dd6227',anchor:0.52},{color:'#eab130',anchor:0.59},{color:'#d8c3ae',anchor:0.85}], noise:50 } },
+  // ── Poster ──
+  { name:'DISCO ELYSIUM', category:'poster', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#382015',anchor:0},{color:'#4e3f22',anchor:0.2},{color:'#545416',anchor:0.33},{color:'#7192a3',anchor:0.5},{color:'#b45629',anchor:0.63},{color:'#f5ac8a',anchor:0.73},{color:'#fcfcf0',anchor:0.91}], contrast:35, midtones:0.75, highlights:0.9, shadows:0.8, noise:20 } },
+  { name:'BLADE RUNNER', category:'poster', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#251f30',anchor:0.11},{color:'#103a4a',anchor:0.36},{color:'#693238',anchor:0.55},{color:'#e93835',anchor:0.52},{color:'#237879',anchor:0.64},{color:'#f9f0da',anchor:0.84}], shadows:1.25 } },
+  // ── Vivid ──
+  { name:'CYBERPUNK', category:'vivid', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0010',anchor:0.04},{color:'#330022',anchor:0.14},{color:'#880044',anchor:0.24},{color:'#ff0088',anchor:0.37},{color:'#50818b',anchor:0.42},{color:'#babc50',anchor:0.48},{color:'#ffee00',anchor:0.88}], phosphorGlow:25, luminanceLift:10, scanlines:10, chromaShift:3 } },
+  { name:'AVATAR', category:'vivid', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#000814',anchor:0},{color:'#001a33',anchor:0.35},{color:'#003366',anchor:0.6},{color:'#0099aa',anchor:0.82},{color:'#44ffcc',anchor:1}], contrast:45, highlights:1.2, shadows:1.2, phosphorGlow:60 } },
+  { name:'STREETS OF RAGE', category:'vivid', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000820',anchor:0},{color:'#001850',anchor:0.25},{color:'#0044aa',anchor:0.55},{color:'#ff8800',anchor:0.82},{color:'#ffeeaa',anchor:1}], contrast:40, highlights:1.1, phosphorGlow:25 } },
+  { name:'CHANTS OF SENNAAR', category:'vivid', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#8e2111',anchor:0.11},{color:'#c92c3d',anchor:0.36},{color:'#9f5417',anchor:0.52},{color:'#61bc81',anchor:0.55},{color:'#cc9e24',anchor:0.64},{color:'#ffea38',anchor:0.84}] } },
+  { name:'ASTRAL CHAIN', category:'vivid', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#010103',anchor:0},{color:'#10146a',anchor:0.1},{color:'#2436d6',anchor:0.55},{color:'#973fac',anchor:0.63},{color:'#b3a3dc',anchor:0.83}], midtones:1.6, highlights:0.85, shadows:2.05, phosphorGlow:25, luminanceLift:25 } },
+  // ── Duotone ──
+  { name:'ROSE', category:'duotone', settings:{ mode:'halftone', htShape:'circle', htInk:'#4a1020', htPaper:'#f6d5c9', htAngle:45, contrast:20, midtones:1.1, highlights:0.9 } },
+  { name:'RUST', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#7a2a10',anchor:0},{color:'#f0dcc0',anchor:1}], contrast:35, midtones:1.1, highlights:0.9 } },
+  { name:'NAVY', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a1428',anchor:0},{color:'#e8dfc8',anchor:1}], contrast:35, midtones:1.1, highlights:0.9 } },
+  { name:'FOREST', category:'duotone', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0a2010',anchor:0},{color:'#eef4e0',anchor:1}], contrast:30, midtones:1.15, highlights:0.9 } },
+  { name:'VIOLET', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#1a0838',anchor:0},{color:'#e8e0f4',anchor:1}], contrast:40 } },
+  // ── Monochrome ──
+  { name:'2001', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], contrast:55, midtones:0.85, highlights:1.2, shadows:1.35 } },
+  { name:'GATTACA', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#141810',anchor:0},{color:'#c8b46c',anchor:1}], contrast:40, highlights:0.95 } },
+  { name:'HOLLOW KNIGHT', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#d8e8f8',anchor:1}], contrast:45, midtones:0.95, highlights:1.1 } },
+  { name:'STIPPLE', category:'mono', carriesDetail:true, settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050505',anchor:0},{color:'#f4f2ec',anchor:1}], detail:72, contrast:40, midtones:0.9, highlights:1.15, shadows:1.3 } },
+  // ── Riso ──
+  { name:'AKIRA MANGA', category:'riso', settings:{ mode:'halftone', htShape:'square', htInk:'#0a0808', htPaper:'#f4f0e8', htAngle:45, contrast:30 } },
+  { name:'PAPRIKA', category:'riso', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, phosphorGlow:30 } },
+  { name:'ARRIVAL', category:'riso', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0f1a', htPaper:'#8899aa', htAngle:60, contrast:20, phosphorGlow:20 } },
+  { name:'JOURNEY', category:'riso', settings:{ mode:'halftone', htShape:'line', htInk:'#3a1a00', htPaper:'#f0c860', htAngle:0, contrast:20, midtones:1.1, highlights:0.9, phosphorGlow:25 } },
+  { name:'DUSK', category:'riso', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#101826',anchor:0},{color:'#3a4a3a',anchor:0.3},{color:'#e8785a',anchor:0.64},{color:'#f0d8b0',anchor:0.92}], contrast:35, midtones:0.95, highlights:1.1, shadows:1.2 } },
   // ── Type ──
   { name:'THE MATRIX', category:'type', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#00ff41', asciiBg:'#000000', asciiCutout:22, phosphorGlow:30, scanlines:25 } },
   { name:'AMBER TERMINAL', category:'type', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#ffb000', asciiBg:'#140e06', asciiCutout:20, phosphorGlow:30 } },
@@ -746,17 +758,6 @@ function fitDims(w, h, max) {
   return [Math.max(1, Math.round(w * sc)), Math.max(1, Math.round(h * sc))];
 }
 
-// The palette swatches a preset card shows, so its look reads before the thumbnail renders.
-function presetSwatches(p) {
-  const s = p.settings;
-  if (s.gamut && s.gamut !== 'full') {
-    const g = DEVICE_GAMUTS[s.gamut];
-    return g && g.palette ? g.palette.slice(0, 6) : ['#141414', '#4a4a4a', '#8a8a8a', '#d8d8d8'];
-  }
-  if (s.mode === 'ascii') return [s.asciiBg || '#000', s.asciiFg || '#0f0'];
-  if (s.mode === 'halftone') return [s.htPaper || '#eee', s.htInk || '#111'];
-  return [...(s.palette || [])].sort((a, b) => a.anchor - b.anchor).map((e) => e.color);
-}
 
 const VIDEO_MAX_BYTES = 150 * 1024 * 1024; // soft cap; warn beyond this
 const GIF_MAX_DIM = 480;   // keep encoded GIFs light regardless of working resolution
@@ -819,6 +820,11 @@ export default function Phosphor() {
   const outputCanvasRef = useRef(null);
   const ctrlRef = useRef(null);
   const zoomAreaRef = useRef(null);
+  const previewImgRef = useRef(null);
+  // Nearest-neighbour (pixelated) scaling only looks right when the render is shown at or
+  // above its native size. Below that — zoomed out, or fit into a narrow pane — it aliases
+  // the dither grid into moiré, so switch to smooth downscaling whenever it's shrunk.
+  const [smoothScale, setSmoothScale] = useState(false);
 
   // ── Splash / boot ──
   const [booting, setBooting] = useState(true);
@@ -1120,6 +1126,21 @@ export default function Phosphor() {
 
   const clampZoom = z => Math.max(0.25, Math.min(8, z));
   const resetView = () => { setZoom(1); setPan({x:0,y:0}); };
+
+  // Decide pixelated vs smooth from the actual on-screen size vs the render's native size.
+  const checkSmooth = useCallback(() => {
+    const im = previewImgRef.current;
+    if (!im || !im.naturalWidth) return;
+    setSmoothScale(im.clientWidth * zoom < im.naturalWidth * 0.98);   // displayed smaller than native → downscaling
+  }, [zoom]);
+  useEffect(() => {
+    checkSmooth();
+    const im = previewImgRef.current;
+    if (!im || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(checkSmooth);
+    ro.observe(im);
+    return () => ro.disconnect();
+  }, [checkSmooth, outputUrl, imageSrc]);
   // Zoom to a target level while keeping the point (px,py) — measured from the viewport centre — fixed.
   const zoomAt = (target, px, py) => {
     const {zoom:z, pan:p} = viewRef.current;
@@ -1522,9 +1543,9 @@ export default function Phosphor() {
           <div className="relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 h-[45vh] md:h-auto md:flex-1">
             <div ref={zoomAreaRef} className="flex-1 overflow-hidden p-4 relative touch-none select-none" style={{cursor:'grab'}}>
               <div className="w-full h-full flex items-center justify-center" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
-                <img src={showingOriginal ? imageSrc : (outputUrl||imageSrc)} alt="preview" draggable={false}
+                <img ref={previewImgRef} onLoad={checkSmooth} src={showingOriginal ? imageSrc : (outputUrl||imageSrc)} alt="preview" draggable={false}
                   className={`max-w-full max-h-full block ${transparentBg&&!showingOriginal?'checker':''}`}
-                  style={{imageRendering:(mode==='ascii'||showingOriginal)?'auto':'pixelated'}}/>
+                  style={{imageRendering:(mode==='ascii'||showingOriginal||smoothScale)?'auto':'pixelated'}}/>
               </div>
               {showingOriginal &&
                 <div className="absolute top-3 left-3 px-2 py-1 text-[10px] tracking-widest text-amber-100 bg-black/70 border border-amber-700/60 pointer-events-none">ORIGINAL</div>}
@@ -1587,7 +1608,6 @@ export default function Phosphor() {
                   <div className="grid grid-cols-3 gap-1.5">
                     {looks.map(p=>{
                       const on=activeLook===p.name;
-                      const swatches=presetSwatches(p);
                       return (
                       <button key={p.name} onClick={()=>applyLookPreset(p)} title={p.name}
                         className={`group flex flex-col overflow-hidden border transition-colors ${on?'border-amber-600':'border-zinc-800 hover:border-zinc-600'}`}>
@@ -1595,9 +1615,6 @@ export default function Phosphor() {
                           {lookThumbs[p.name]
                             ? <img src={lookThumbs[p.name]} alt="" className="w-full h-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
                             : <div className="w-full h-full animate-pulse bg-zinc-800"/>}
-                        </div>
-                        <div className="flex h-1 w-full">
-                          {swatches.map((c,i)=><span key={i} style={{background:c,flex:1}}/>)}
                         </div>
                         <div className={`text-[10px] leading-tight py-1 px-0.5 text-center truncate ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
                       </button>
