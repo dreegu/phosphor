@@ -1513,8 +1513,8 @@ export default function Phosphor() {
 
           {/* IMAGE */}
           <div className="relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 h-[45vh] md:h-auto md:flex-1">
-            <div ref={zoomAreaRef} className="flex-1 flex items-center justify-center overflow-hidden p-4 relative touch-none select-none" style={{cursor:'grab'}}>
-              <div style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
+            <div ref={zoomAreaRef} className="flex-1 overflow-hidden p-4 relative touch-none select-none" style={{cursor:'grab'}}>
+              <div className="w-full h-full flex items-center justify-center" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
                 <img src={showingOriginal ? imageSrc : (outputUrl||imageSrc)} alt="preview" draggable={false}
                   className={`max-w-full max-h-full block ${transparentBg&&!showingOriginal?'checker':''}`}
                   style={{imageRendering:(mode==='ascii'||showingOriginal)?'auto':'pixelated'}}/>
