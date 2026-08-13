@@ -871,6 +871,7 @@ export default function Phosphor() {
       setVideoDuration(v.duration || 0);
       setVideoTime(0); setVideoStart(0);
       setVideoEnd(Math.min(v.duration || 0, Math.max(1, (v.duration || 0) * 0.25))); // sensible default range
+      setZoom(1); setPan({x:0,y:0});   // fit the new video to the viewport
       setImageSrc(captureVideoFrame(v));
     };
   }, [captureVideoFrame]);
@@ -878,6 +879,7 @@ export default function Phosphor() {
   const loadImageFile = useCallback((file) => {
     setIsVideo(false); setVideoWarning('');
     videoRef.current = null;
+    setZoom(1); setPan({x:0,y:0});   // fit the new image to the viewport
     setFileName(file.name);
     const reader = new FileReader();
     reader.onload = ev => setImageSrc(ev.target.result);
@@ -985,6 +987,7 @@ export default function Phosphor() {
     setSourceDevice(null);
     applyLoadedSettings(pick.settings);
     if(pick.fileName) setFileName(pick.fileName);
+    setZoom(1); setPan({x:0,y:0});
     setImageSrc(pick.image);
   };
 
