@@ -101,7 +101,7 @@ const DEVICE_ICONS = {
 const ap = cols => cols.map((color,i,a)=>({ color, anchor: a.length>1 ? i/(a.length-1) : 0.5 }));
 
 // Baseline every look resets to, so a preset only declares what it changes.
-const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, definition:2, asciiInvert:false, asciiCutout:0, asciiBold:true, dcolor:'palette', adaptiveCount:8 };
+const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, definition:2, asciiInvert:false, asciiCutout:0, asciiBold:true, dcolor:'palette', adaptiveCount:16, gamut:'full' };
 
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
@@ -312,11 +312,28 @@ function hslToRgb(h,s,l){ if(s===0){const v=Math.round(l*255);return [v,v,v];}
   const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
   const f=t=>{ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
   return [Math.round(f(h+1/3)*255),Math.round(f(h)*255),Math.round(f(h-1/3)*255)]; }
-function vividPalette(pal,satMul=1.45,contrast=1.12){
-  return pal.map(([r,g,b])=>{ let [h,s,l]=rgbToHsl(r,g,b); s=Math.min(1,s*satMul); l=Math.max(0,Math.min(1,0.5+(l-0.5)*contrast)); return hslToRgb(h,s,l); });
+// Vibrance, not flat saturation: lift muted colours a lot, already-saturated ones barely —
+// this is what pulls the median-cut means back out of the sepia/grey they average into.
+function vividPalette(pal,satMul=1.75,contrast=1.14){
+  return pal.map(([r,g,b])=>{ let [h,s,l]=rgbToHsl(r,g,b);
+    s=Math.min(1, s*(satMul-(satMul-1)*s));
+    l=Math.max(0,Math.min(1,0.5+(l-0.5)*contrast)); return hslToRgb(h,s,l); });
 }
-// Dither the image toward a palette derived FROM the image (hue preserved). Fills `out`; returns the palette.
-function ditherAdaptive(data,sw,sh,out,algo,getY,n){
+
+// Authentic hardware colour sets. Small fixed palettes map by nearest colour; bit-depth
+// gamuts derive a palette from the photo then snap each colour to the console's channel grid.
+const DEVICE_GAMUTS = {
+  gameboy:     { label:'Game Boy',       palette:['#0f380f','#306230','#8bac0f','#9bbc0f'] },
+  gbcolor:     { label:'Game Boy Color', bits:5, max:16 },
+  playstation: { label:'PlayStation',    bits:5, max:48 },
+  c64:         { label:'Commodore 64',   palette:['#000000','#ffffff','#880000','#aaffee','#cc44cc','#00cc55','#0000aa','#eeee77','#dd8855','#664400','#ff7777','#333333','#777777','#aaff66','#0088ff','#bbbbbb'] },
+  amiga:       { label:'Amiga',          bits:4, max:32 },
+  atarist:     { label:'Atari ST',       bits:3, max:16 },
+};
+
+// Dither the image toward a palette derived FROM the image (hue preserved), optionally
+// constrained to a device gamut. Fills `out`; returns the palette.
+function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut){
   const total=sw*sh;
   const R=new Float32Array(total),G=new Float32Array(total),B=new Float32Array(total);
   for(let i=0;i<total;i++){
@@ -326,7 +343,16 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n){
   }
   const stride=Math.max(1,Math.floor(total/4000)), samples=[];
   for(let i=0;i<total;i+=stride) samples.push([R[i],G[i],B[i]]);
-  const pal=vividPalette(medianCutPalette(samples, Math.max(2,Math.min(16,n||8))));
+  const gm = gamut && gamut!=='full' ? DEVICE_GAMUTS[gamut] : null;
+  let pal;
+  if(gm && gm.palette){
+    pal = gm.palette.map(hexToRgb);                                   // exact hardware colours
+  } else if(gm && gm.bits){
+    const levels=(1<<gm.bits)-1, snap=v=>Math.round(Math.round(v/255*levels)/levels*255);
+    pal = medianCutPalette(samples, gm.max).map(([r,g,b])=>[snap(r),snap(g),snap(b)]);  // snap to console grid
+  } else {
+    pal = vividPalette(medianCutPalette(samples, Math.max(2,Math.min(16,n||16))));
+  }
   const ordered = algo==='bayer'||algo==='cross'||algo==='bluenoise';
   if(ordered){
     const{matrix,size,max}=algo==='bluenoise'?getBlueNoise():ORDERED_PATTERNS[algo];
@@ -355,7 +381,7 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n){
 }
 
 // ─── RENDER: DITHER ──────────────────────────────────────────────────────────
-function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount}) {
+function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut}) {
   const sw = Math.max(1,Math.round(w/px)), sh = Math.max(1,Math.round(h/px));
   const small = document.createElement('canvas');
   small.width=sw; small.height=sh;
@@ -365,7 +391,7 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adapti
   const data = sctx.getImageData(0,0,sw,sh).data;
   const out = new Uint8ClampedArray(sw*sh*4);
   if (colorMode==='adaptive') {
-    ditherAdaptive(data,sw,sh,out,algo,getY,adaptiveCount);
+    ditherAdaptive(data,sw,sh,out,algo,getY,adaptiveCount,gamut);
     sctx.putImageData(new ImageData(out,sw,sh),0,0);
     const canvas=document.createElement('canvas');
     canvas.width=w; canvas.height=h;
@@ -584,7 +610,7 @@ function renderSettingsToCanvas(img,s,w,h){
   const scale=Math.max(0.05,Math.min(1,Math.max(w,h)/900));
   const sizeFor=(m,legacy)=> (s.detail!==undefined ? detailToSize(m,s.detail) : legacy) * scale;
   let canvas;
-  if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,sizeFor('dither',s.pixelSize||5)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount});
+  if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,sizeFor('dither',s.pixelSize||5)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount,gamut:s.gamut});
   else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:Math.max(3,sizeFor('ascii',s.asciiSize||8)),getY,invert:s.asciiInvert,cutout:s.asciiCutout,bold:s.asciiBold!==false});
   else canvas=renderHalftone({img,w,h,shape:s.htShape||'circle',dotSize:Math.max(0.8,sizeFor('halftone',s.htSize||3.5)),angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY});
   const darkColor=mode==='dither'?(([...(s.palette||[])].sort((a,b)=>a.anchor-b.anchor)[0]||{}).color||'#000'):mode==='ascii'?(s.asciiBg||'#000'):'#000';
@@ -662,8 +688,8 @@ function buildHalftoneSVG({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY,
 
 // Dither → sample the rendered block grid and emit rects, merging horizontal runs of
 // one colour so files stay lean. Reuses renderDither so the pattern matches exactly.
-function buildDitherSVG({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount}){
-  const canvas=renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount});
+function buildDitherSVG({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut}){
+  const canvas=renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut});
   const cw=canvas.width, ch=canvas.height;
   const data=canvas.getContext('2d').getImageData(0,0,cw,ch).data;
   const step=Math.max(1,Math.round(px));
@@ -693,7 +719,7 @@ function renderSettingsToSVG(img,s,w,h){
   const tp=!!s.transparent;
   if(mode==='ascii') return buildAsciiSVG({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:detailToSize('ascii',s.detail??55),getY,transparent:tp,invert:!!s.asciiInvert,cutout:s.asciiCutout||0,bold:s.asciiBold!==false});
   if(mode==='halftone') return buildHalftoneSVG({img,w,h,shape:s.htShape||'circle',dotSize:detailToSize('halftone',s.detail??55),angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY,transparent:tp});
-  return buildDitherSVG({img,w,h,px:Math.max(1,detailToSize('dither',s.detail??55)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,transparent:tp,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount});
+  return buildDitherSVG({img,w,h,px:Math.max(1,detailToSize('dither',s.detail??55)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,transparent:tp,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount,gamut:s.gamut});
 }
 
 // ─── ANIMATED GIF ────────────────────────────────────────────────────────────
@@ -778,7 +804,8 @@ export default function Phosphor() {
   const [paletteKey, setPaletteKey] = useState('amber');  // selected preset, or null when hand-edited
   const [algo, setAlgo] = useState('bayer');
   const [dcolor, setDcolor] = useState('palette');        // dither color mode: 'palette' | 'adaptive'
-  const [adaptiveCount, setAdaptiveCount] = useState(8);  // adaptive palette size
+  const [adaptiveCount, setAdaptiveCount] = useState(16); // adaptive palette size (default to max)
+  const [gamut, setGamut] = useState('full');             // adaptive colour constraint / device gamut
   const [detail, setDetail] = useState(55);   // unified 0-100, higher = more detail
   const [resLock, setResLock] = useState(false);
   const [effectivePx, setEffectivePx] = useState(5);
@@ -962,6 +989,7 @@ export default function Phosphor() {
     if(s.algo!==undefined) setAlgo(s.algo);
     if(s.dcolor!==undefined) setDcolor(s.dcolor);
     if(s.adaptiveCount!==undefined) setAdaptiveCount(s.adaptiveCount);
+    if(s.gamut!==undefined) setGamut(s.gamut);
     if(s.definition!==undefined) setDefinition(s.definition);
     // Unified detail, with backward-compat for older presets/links that stored raw sizes.
     if(s.detail!==undefined) setDetail(s.detail);
@@ -999,12 +1027,12 @@ export default function Phosphor() {
   };
 
   const getSettings = useCallback(() => ({
-    mode, algo, dcolor, adaptiveCount, detail, definition,
+    mode, algo, dcolor, adaptiveCount, gamut, detail, definition,
     palette: palette.map(({color,anchor})=>({color,anchor})),
     asciiRamp, asciiFg, asciiBg, asciiInvert, asciiCutout, asciiBold,
     htShape, htAngle, htInk, htPaper,
     contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
-  }), [mode,algo,dcolor,adaptiveCount,detail,definition,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
+  }), [mode,algo,dcolor,adaptiveCount,gamut,detail,definition,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
 
   // ── Undo / redo ───────────────────────────────────────────────────────────
   // History holds serialized settings only (never the image), so replacing the image
@@ -1240,7 +1268,7 @@ export default function Phosphor() {
 
     let canvas;
     const tp=transparentBg;
-    if(mode==='dither') canvas=renderDither({img,w,h,px,palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount});
+    if(mode==='dither') canvas=renderDither({img,w,h,px,palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount,gamut});
     else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:detailToSize('ascii',detail)*D,getY,transparent:tp,invert:asciiInvert,cutout:asciiCutout,bold:asciiBold});
     else if(mode==='halftone') canvas=renderHalftone({img,w,h,shape:htShape,dotSize:detailToSize('halftone',detail)*D,angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
     if (!canvas) return;
@@ -1270,7 +1298,7 @@ export default function Phosphor() {
 
     outputCanvasRef.current = canvas;
     setOutputUrl(canvas.toDataURL('image/png'));
-  }, [mode,palette,algo,dcolor,adaptiveCount,detail,definition,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
+  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,definition,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -1682,8 +1710,14 @@ export default function Phosphor() {
                   <Segmented options={[['palette','Palette'],['adaptive','Adaptive']]} value={dcolor} onChange={setDcolor}/>
                 </Field>
                 {dcolor==='adaptive' ? <>
-                  <NumSlider label="Colors" value={adaptiveCount} min={2} max={16} step={1} onChange={setAdaptiveCount}/>
-                  <div className="text-xs text-zinc-600 leading-relaxed">Builds a palette from the photo's own colours and maps each pixel to the nearest — the image keeps its real hues instead of a fixed look.</div>
+                  <Field label="Gamut">
+                    <Dropdown value={gamut} onChange={setGamut}
+                      options={[['full','Full colour']].concat(Object.entries(DEVICE_GAMUTS).map(([k,g])=>[k,g.label]))}/>
+                  </Field>
+                  {gamut==='full' && <NumSlider label="Colors" value={adaptiveCount} min={2} max={16} step={1} onChange={setAdaptiveCount}/>}
+                  <div className="text-xs text-zinc-600 leading-relaxed">{gamut==='full'
+                    ? "Builds a palette from the photo's own colours and maps each pixel to the nearest — the image keeps its real hues instead of a fixed look."
+                    : `Maps the photo onto the ${DEVICE_GAMUTS[gamut].label} colour set — authentic hardware colours, approximated from your image.`}</div>
                 </> : <>
                   <Field label="Palette">
                     <Dropdown value={paletteKey||'__custom'}
