@@ -1431,7 +1431,7 @@ export default function Phosphor() {
 
   const updateColor  = (id,hex) => { setPaletteKey(null); setPalette(p=>p.map(e=>e.id===id?{...e,color:hex}:e)); };
   const updateAnchor = (id,val) => { setPaletteKey(null); setPalette(p=>p.map(e=>e.id===id?{...e,anchor:val}:e)); };
-  const addColor     = () => { if(palette.length<5){ setPaletteKey(null); setPalette(p=>[...p,mkEntry('#888888',0.5)]); } };
+  const addColor     = () => { if(palette.length<8){ setPaletteKey(null); setPalette(p=>[...p,mkEntry('#888888',0.5)]); } };
   const removeColor  = (id) => { if(palette.length>2){ setPaletteKey(null); setPalette(p=>p.filter(e=>e.id!==id)); } };
   const displayPalette = [...palette].sort((a,b)=>a.anchor-b.anchor);
 
@@ -1538,7 +1538,7 @@ export default function Phosphor() {
                   className="icon-btn w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
                   <ZoomIn size={12}/>
                 </button>
-                <button onClick={resetView} className="text-xs text-zinc-600 hover:text-amber-400 ml-1">reset</button>
+                <button onClick={resetView} className="text-xs text-zinc-600 hover:text-amber-400 ml-1">Reset</button>
                 <button
                   onPointerDown={e=>{ if(outputUrl){ e.preventDefault(); setComparing(true); } }}
                   onPointerUp={()=>setComparing(false)} onPointerLeave={()=>setComparing(false)}
@@ -1619,7 +1619,7 @@ export default function Phosphor() {
 
             <Panel label="Rendering">
               <Field label="Mode">
-                <Segmented options={[['dither','Dither'],['ascii','Ascii'],['halftone','Halftone']]} value={mode} onChange={handleModeChange}/>
+                <Segmented options={[['dither','Dither'],['ascii','ASCII'],['halftone','Halftone']]} value={mode} onChange={handleModeChange}/>
               </Field>
               {mode==='dither' &&
                 <Field label="Pattern">
@@ -1641,7 +1641,7 @@ export default function Phosphor() {
               <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
             </Panel>
 
-            <Panel label="Appearance" action={appearanceDirty && <ResetButton onClick={resetAppearance} title="reset appearance"/>}>
+            <Panel label="Appearance" action={appearanceDirty && <ResetButton onClick={resetAppearance} title="Reset appearance"/>}>
               <NumSlider label="Contrast"   value={contrast}   min={-100} max={100} step={1}    onChange={setContrast}/>
               <NumSlider label="Midtones"   value={midtones}   min={0.3}  max={2.5} step={0.05} onChange={setMidtones}/>
               <NumSlider label="Highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
@@ -1656,12 +1656,12 @@ export default function Phosphor() {
                 {dcolor==='adaptive' ? <>
                   <Field label="Gamut">
                     <Dropdown value={gamut} onChange={setGamut}
-                      options={[['full','Full colour']].concat(Object.entries(DEVICE_GAMUTS).map(([k,g])=>[k,g.label]))}/>
+                      options={[['full','Full color']].concat(Object.entries(DEVICE_GAMUTS).map(([k,g])=>[k,g.label]))}/>
                   </Field>
                   {gamut==='full' && <NumSlider label="Colors" value={adaptiveCount} min={2} max={16} step={1} onChange={setAdaptiveCount}/>}
                   <div className="text-xs text-zinc-600 leading-relaxed">{gamut==='full'
                     ? "Builds a palette from the photo's own colours and maps each pixel to the nearest — the image keeps its real hues instead of a fixed look."
-                    : `Maps the photo onto the ${DEVICE_GAMUTS[gamut].label} colour set — authentic hardware colours, approximated from your image.`}</div>
+                    : `Maps the photo onto the ${DEVICE_GAMUTS[gamut].label} color set — authentic hardware colors, approximated from your image.`}</div>
                 </> : <>
                   <Field label="Palette">
                     <Dropdown value={paletteKey||'__custom'}
@@ -1678,27 +1678,28 @@ export default function Phosphor() {
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
                           <div className="w-full h-full" style={{background:entry.color}}/>
                         </div>
+                        <HexInput value={entry.color} onChange={hex=>updateColor(entry.id,hex)}/>
                         <input type="range" min={0} max={1} step={0.01} value={entry.anchor}
                           onChange={e=>updateAnchor(entry.id,parseFloat(e.target.value))} className="flex-1"/>
                         {palette.length>2 &&
-                          <button onClick={()=>removeColor(entry.id)} title="remove color" aria-label="remove color"
+                          <button onClick={()=>removeColor(entry.id)} title="Remove color" aria-label="remove color"
                             className="remove-btn text-zinc-600 hover:text-amber-400 w-4 flex items-center justify-center shrink-0">
                             <X size={10}/>
                           </button>}
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-between text-xs text-zinc-700 mt-1"><span>shadows</span><span>highlights</span></div>
+                  <div className="flex justify-between text-xs text-zinc-700 mt-1"><span>Shadows</span><span>Highlights</span></div>
                   {palette.length===2 &&
                     <button onClick={invertPalette}
                       className="tap-target mt-1 w-full py-1 border border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1.5 text-xs">
-                      <ArrowLeftRight size={10}/> invert
+                      <ArrowLeftRight size={10}/> Invert
                     </button>}
-                  {palette.length<5 &&
-                    <button onClick={addColor}
-                      className="mt-1 w-full py-1 border border-dashed border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1 text-xs">
-                      <Plus size={10}/> add color
-                    </button>}
+                  <button onClick={addColor} disabled={palette.length>=8}
+                    title={palette.length>=8?'Maximum of 8 colors reached':'Add a color'}
+                    className="mt-1 w-full py-1 border border-dashed border-zinc-800 enabled:hover:border-amber-700 text-zinc-600 enabled:hover:text-amber-400 disabled:opacity-40 disabled:cursor-default flex items-center justify-center gap-1 text-xs">
+                    <Plus size={10}/> Add color
+                  </button>
                 </>}
               </Panel>
             </div>}
@@ -1733,7 +1734,7 @@ export default function Phosphor() {
               </Panel>
             </div>}
 
-            <Panel label="Atmosphere" action={atmosphereDirty && <ResetButton onClick={resetAtmosphere} title="reset atmosphere"/>}>
+            <Panel label="Atmosphere" action={atmosphereDirty && <ResetButton onClick={resetAtmosphere} title="Reset atmosphere"/>}>
               <NumSlider label="Phosphor glow"  value={phosphorGlow}  min={0} max={100} step={1} onChange={setPhosphorGlow}/>
               <NumSlider label="Luminance lift" value={luminanceLift} min={0} max={100} step={1} onChange={setLuminanceLift}/>
               <NumSlider label="Scanlines" value={scanlines} min={0} max={100} step={1} onChange={setScanlines}/>
@@ -1741,10 +1742,10 @@ export default function Phosphor() {
               <NumSlider label="Chroma shift" value={chromaShift} min={0} max={20} step={0.5} onChange={setChromaShift}/>
             </Panel>
 
-            <Panel label="Settings link">
+            <Panel label="Share settings">
               <button onClick={shareSettings}
                 className="tap-target flex items-center justify-center gap-2 py-2 border border-zinc-800 text-zinc-400 hover:text-amber-400 hover:border-amber-800 text-xs tracking-wider transition-colors">
-                <Share2 size={11}/> {shared?'link copied!':'copy settings link'}
+                <Share2 size={11}/> {shared?'Link copied!':'Copy settings link'}
               </button>
               <div className="text-xs text-zinc-600 leading-relaxed">Copies a link that reopens the tool with all of the current settings applied.</div>
             </Panel>
@@ -1982,6 +1983,24 @@ function ExportMenu({format,setFormat,definition,setDefinition,transparentBg,set
           </button>
         </div>}
     </div>
+  );
+}
+
+// Editable hex field: type freely, commit a valid #rrggbb on blur/Enter, revert otherwise.
+function HexInput({value,onChange}) {
+  const [t,setT] = useState(value);
+  const [prev,setPrev] = useState(value);
+  if (prev !== value) { setPrev(value); setT(value); }   // sync to external changes without an effect
+  const commit = (v) => {
+    const m = v.trim().replace(/^#/,'');
+    if (/^[0-9a-fA-F]{6}$/.test(m)) onChange('#'+m.toLowerCase());
+    else setT(value);
+  };
+  return (
+    <input value={t} onChange={e=>setT(e.target.value)} onBlur={e=>commit(e.target.value)}
+      onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); }}
+      spellCheck={false} maxLength={7} aria-label="hex color"
+      className="shrink-0 w-[62px] bg-zinc-900 border border-zinc-700 focus:border-amber-700 outline-none text-[11px] text-zinc-300 px-1.5 py-1 font-mono lowercase"/>
   );
 }
 
