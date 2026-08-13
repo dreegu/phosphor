@@ -504,20 +504,24 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
   if(phosphorGlow>0){
     const g=phosphorGlow/100;
     const blurPx=g*Math.min(w,h)*0.06;
-    // isolate pixels above 80% brightness into their own layer
+    // Bloom the brightest tones by VALUE (max channel), not luminance, so vivid colours —
+    // a saturated blue, a light lavender — glow too, not only near-white. A soft knee ramps
+    // each pixel's contribution in instead of the old hard >0.8 luminance cutoff.
     const src=ctx.getImageData(0,0,w,h); const sd=src.data;
     const bright=document.createElement('canvas'); bright.width=w; bright.height=h;
     const brctx=bright.getContext('2d');
     const bimg=brctx.createImageData(w,h); const bd=bimg.data;
+    const knee=0.5;
     for(let i=0;i<sd.length;i+=4){
-      const lum=(0.299*sd[i]+0.587*sd[i+1]+0.114*sd[i+2])/255;
-      if(lum>0.8){ bd[i]=sd[i]; bd[i+1]=sd[i+1]; bd[i+2]=sd[i+2]; bd[i+3]=255; }
+      const v=Math.max(sd[i],sd[i+1],sd[i+2])/255;
+      const wt=v>knee?(v-knee)/(1-knee):0;
+      if(wt>0){ bd[i]=sd[i]*wt; bd[i+1]=sd[i+1]*wt; bd[i+2]=sd[i+2]*wt; bd[i+3]=255; }
     }
     brctx.putImageData(bimg,0,0);
     // blur the isolated highlights and screen-composite back
     const blur=document.createElement('canvas'); blur.width=w; blur.height=h;
     const blctx=blur.getContext('2d'); blctx.filter=`blur(${blurPx}px)`; blctx.drawImage(bright,0,0);
-    ctx.save(); ctx.globalCompositeOperation='screen'; ctx.globalAlpha=Math.min(1,g*1.4); ctx.drawImage(blur,0,0); ctx.restore();
+    ctx.save(); ctx.globalCompositeOperation='screen'; ctx.globalAlpha=Math.min(1,g*1.5); ctx.drawImage(blur,0,0); ctx.restore();
   }
   if(luminanceLift>0){
     // gentle uniform overexposure via additive white at very low opacity
@@ -525,7 +529,10 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
     ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,w,h); ctx.restore();
   }
   if(scanlines>0){
-    ctx.save(); ctx.globalAlpha=(scanlines/100)*0.55; ctx.fillStyle=darkColor||'#000';
+    // Multiply alternate rows toward dark so brightness is modulated proportionally, instead
+    // of flat-filling dark over half the image (which just muddied and blackened it).
+    const k=Math.round((1-(scanlines/100)*0.55)*255);
+    ctx.save(); ctx.globalCompositeOperation='multiply'; ctx.fillStyle=`rgb(${k},${k},${k})`;
     for(let y=0;y<h;y+=2) ctx.fillRect(0,y,w,1);
     ctx.restore();
   }
