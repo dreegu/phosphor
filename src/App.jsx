@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Shuffle, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Code2, Eye } from 'lucide-react';
+import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Code2, Eye } from 'lucide-react';
 import LZString from 'lz-string';
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 
@@ -141,6 +141,7 @@ const LOOK_PRESETS = [
   { name:'VIDEODROME', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0e132b',anchor:0.08},{color:'#035a8f',anchor:0.27},{color:'#9f3e8c',anchor:0.36},{color:'#c50012',anchor:0.46},{color:'#ea7d9c',anchor:0.52},{color:'#86b5c4',anchor:0.67},{color:'#3ac6bd',anchor:0.76},{color:'#e3ead9',anchor:0.92}], contrast:1 } },
   { name:'EDGERUNNERS', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#061012',anchor:0.04},{color:'#1f4240',anchor:0.19},{color:'#1f706b',anchor:0.37},{color:'#847ab7',anchor:0.46},{color:'#76c1a1',anchor:0.63},{color:'#e8f901',anchor:0.75},{color:'#c7dee5',anchor:0.83},{color:'#ece0f0',anchor:0.97}], phosphorGlow:18, luminanceLift:13 } },
   { name:'BACK TO THE FUTURE', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#16171d',anchor:0},{color:'#050f3e',anchor:0.08},{color:'#1a2a67',anchor:0.22},{color:'#b15527',anchor:0.39},{color:'#dd6227',anchor:0.52},{color:'#eab130',anchor:0.59},{color:'#d8c3ae',anchor:0.85}], noise:50 } },
+  { name:'ANDOR', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#101826',anchor:0},{color:'#3a3d4a',anchor:0.14},{color:'#e8785a',anchor:0.41},{color:'#f0d8b0',anchor:0.91}], noise:45 } },
   // ── Poster ──
   { name:'DISCO ELYSIUM', category:'poster', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#382015',anchor:0},{color:'#4e3f22',anchor:0.2},{color:'#545416',anchor:0.33},{color:'#7192a3',anchor:0.5},{color:'#b45629',anchor:0.63},{color:'#f5ac8a',anchor:0.73},{color:'#fcfcf0',anchor:0.91}], contrast:35, midtones:0.75, highlights:0.9, shadows:0.8, noise:20 } },
   { name:'BLADE RUNNER', category:'poster', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#251f30',anchor:0.11},{color:'#103a4a',anchor:0.36},{color:'#693238',anchor:0.55},{color:'#e93835',anchor:0.52},{color:'#237879',anchor:0.64},{color:'#f9f0da',anchor:0.84}], shadows:1.25 } },
@@ -152,7 +153,6 @@ const LOOK_PRESETS = [
   { name:'ASTRAL CHAIN', category:'vivid', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#010103',anchor:0},{color:'#10146a',anchor:0.1},{color:'#2436d6',anchor:0.55},{color:'#973fac',anchor:0.63},{color:'#b3a3dc',anchor:0.83}], midtones:1.6, highlights:0.85, shadows:2.05, phosphorGlow:25, luminanceLift:25 } },
   // ── Duotone ──
   { name:'ROSE', category:'duotone', settings:{ mode:'halftone', htShape:'circle', htInk:'#4a1020', htPaper:'#f6d5c9', htAngle:45, contrast:20, midtones:1.1, highlights:0.9 } },
-  { name:'RUST', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#7a2a10',anchor:0},{color:'#f0dcc0',anchor:1}], contrast:35, midtones:1.1, highlights:0.9 } },
   { name:'NAVY', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a1428',anchor:0},{color:'#e8dfc8',anchor:1}], contrast:35, midtones:1.1, highlights:0.9 } },
   { name:'FOREST', category:'duotone', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0a2010',anchor:0},{color:'#eef4e0',anchor:1}], contrast:30, midtones:1.15, highlights:0.9 } },
   { name:'VIOLET', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#1a0838',anchor:0},{color:'#e8e0f4',anchor:1}], contrast:40 } },
@@ -995,13 +995,16 @@ export default function Phosphor() {
     if(s.chromaShift!==undefined) setChromaShift(s.chromaShift);
   };
 
-  const handleShuffle = () => {
-    const pick = DEFAULT_POOL[Math.floor(Math.random()*DEFAULT_POOL.length)];
+  // Fresh entry: a random sample image paired with a random look, so the landing frame
+  // is different every visit. (Add more images to DEFAULT_POOL to vary the photo too.)
+  const shuffleAll = () => {
+    const img = DEFAULT_POOL[Math.floor(Math.random()*DEFAULT_POOL.length)];
+    const look = LOOK_PRESETS[Math.floor(Math.random()*LOOK_PRESETS.length)];
     setSourceDevice(null);
-    applyLoadedSettings(pick.settings);
-    if(pick.fileName) setFileName(pick.fileName);
+    applyLookPreset(look);
+    if(img.fileName) setFileName(img.fileName);
     setZoom(1); setPan({x:0,y:0});
-    setImageSrc(pick.image);
+    setImageSrc(img.image);
   };
 
   const getSettings = useCallback(() => ({
@@ -1075,15 +1078,20 @@ export default function Phosphor() {
     setTimeout(() => setShared(false), 1500);
   };
 
-  // On first load, apply settings from the URL hash if present. Fails silently.
+  // On first load: honour a shared settings link if present, otherwise land on a
+  // random image + random look so every fresh visit looks different. Deferred a frame
+  // (behind the splash) so we're not setting state synchronously during mount.
   useEffect(() => {
-    const hash = window.location.hash.replace(/^#/, '');
-    if (!hash) { applyLoadedSettings(DEFAULT_SETTINGS); return; }
-    try {
-      const json = LZString.decompressFromEncodedURIComponent(hash);
-      if (!json) { applyLoadedSettings(DEFAULT_SETTINGS); return; }
-      applyLoadedSettings(JSON.parse(json));
-    } catch { applyLoadedSettings(DEFAULT_SETTINGS); }
+    const id = setTimeout(() => {
+      const hash = window.location.hash.replace(/^#/, '');
+      if (!hash) { shuffleAll(); return; }
+      try {
+        const json = LZString.decompressFromEncodedURIComponent(hash);
+        if (!json) { shuffleAll(); return; }
+        applyLoadedSettings(JSON.parse(json));
+      } catch { shuffleAll(); }
+    }, 0);
+    return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1486,6 +1494,7 @@ export default function Phosphor() {
         @keyframes fadein{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
         .anim-fadein{animation:fadein 0.18s ease-out}
         @keyframes boot{0%{transform:translateX(-120%)}100%{transform:translateX(420%)}}
+        @keyframes logoboot{0%{opacity:0;transform:scale(.8)}18%{opacity:.7}26%{opacity:.15}40%{opacity:1;transform:scale(1.04)}52%{opacity:.55}66%{opacity:1;transform:scale(1)}80%{opacity:.85}100%{opacity:1;transform:scale(1)}}
         .checker{background-image:linear-gradient(45deg,#26262b 25%,transparent 25%),linear-gradient(-45deg,#26262b 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#26262b 75%),linear-gradient(-45deg,transparent 75%,#26262b 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:#161619}
         @media (pointer:coarse){
           .btn{padding:12px 0;min-height:44px}
@@ -1502,13 +1511,12 @@ export default function Phosphor() {
       {/* HEADER */}
       <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-zinc-800 shrink-0 gap-2">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <h1 className="text-[13px] sm:text-base text-amber-100 tracking-widest whitespace-nowrap">
-            PHOSPHOR<span className="text-amber-100/50 font-light"> STUDIO</span>
-          </h1>
-          <button onClick={handleShuffle} title="shuffle" aria-label="shuffle image and settings"
-            className="tap-target flex items-center justify-center w-7 h-7 shrink-0 border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300 transition-colors">
-            <Shuffle size={13}/>
-          </button>
+          <div className="flex items-center gap-2 min-w-0">
+            <img src="/favicon.png" alt="Phosphor Studio" className="w-6 h-6 shrink-0 rounded-[3px]"/>
+            <h1 className="hidden sm:block text-base whitespace-nowrap tracking-tight">
+              <span className="text-amber-100">Phosphor</span> <span className="text-zinc-500">Studio</span>
+            </h1>
+          </div>
           <div className="flex items-center gap-1">
             <button onClick={undo} disabled={!canUndo} title="undo (⌘Z)" aria-label="undo"
               className="tap-target flex items-center justify-center w-7 h-7 shrink-0 border border-zinc-700 enabled:hover:border-amber-600 text-zinc-500 enabled:hover:text-amber-300 disabled:opacity-30 disabled:cursor-default transition-colors">
@@ -1788,11 +1796,13 @@ export default function Phosphor() {
 }
 
 // Professional-software boot screen: covers the first-render flash, fades into the app.
+// The logo "powers on" with a phosphor/CRT flicker before the app appears.
 function Splash({hiding}) {
   return (
     <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950 transition-opacity duration-500 ${hiding?'opacity-0 pointer-events-none':'opacity-100'}`}>
-      <h1 className="text-xl sm:text-2xl text-amber-100 tracking-[0.35em]">PHOSPHOR<span className="text-amber-100/50 font-light"> STUDIO</span></h1>
-      <div className="mt-6 w-40 h-px bg-zinc-800 overflow-hidden">
+      <img src="/icon-512.png" alt="" className="w-20 h-20 rounded-lg" style={{animation:'logoboot 1.5s ease-out both', imageRendering:'auto'}}/>
+      <h1 className="mt-5 text-lg tracking-tight"><span className="text-amber-100">Phosphor</span> <span className="text-zinc-500">Studio</span></h1>
+      <div className="mt-5 w-40 h-px bg-zinc-800 overflow-hidden">
         <div className="h-full w-1/3 bg-amber-500/80" style={{animation:'boot 1.1s ease-in-out infinite'}}/>
       </div>
       <div className="mt-4 text-[10px] tracking-[0.3em] text-zinc-600">INITIALIZING</div>
