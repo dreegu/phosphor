@@ -1605,7 +1605,7 @@ export default function Phosphor() {
                 if(!looks.length) return null;
                 return (
                 <Panel key={key} label={label}>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1.5">
                     {looks.map(p=>{
                       const on=activeLook===p.name;
                       return (
@@ -1616,7 +1616,7 @@ export default function Phosphor() {
                             ? <img src={lookThumbs[p.name]} alt="" className="w-full h-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
                             : <div className="w-full h-full animate-pulse bg-zinc-800"/>}
                         </div>
-                        <div className={`text-[10px] leading-tight py-1 px-0.5 text-center truncate ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
+                        <div className={`text-[11px] leading-tight py-1.5 px-1 text-center ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
                       </button>
                     );})}
                   </div>
