@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Shuffle, Share2, ArrowLeftRight, Gamepad2, Monitor, Terminal, Newspaper, Tv, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Code2, Eye } from 'lucide-react';
+import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Shuffle, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Code2, Eye } from 'lucide-react';
 import LZString from 'lz-string';
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 
@@ -90,13 +90,6 @@ const PALETTE_PRESETS = {
   duotone_violet: { name:'VIOLET', colors:['#1a0838','#e8e0f4'], anchors:[0,1] },
 };
 
-// device preset icons, by category
-const DEVICE_ICONS = {
-  gameboy:Gamepad2, gbcolor:Gamepad2, playstation:Gamepad2,
-  macintosh:Monitor, c64:Monitor, amiga:Monitor, atarist:Monitor, msx:Monitor, cga:Monitor, zxspectrum:Monitor,
-  bbs:Terminal, newsprint:Newspaper, teletext:Tv,
-};
-
 // even-anchor palette helper for the curated looks below
 const ap = cols => cols.map((color,i,a)=>({ color, anchor: a.length>1 ? i/(a.length-1) : 0.5 }));
 
@@ -118,79 +111,54 @@ function sizeToDetail(mode, size){
   return Math.round(Math.max(0, Math.min(100, 100*Math.log(s/max)/Math.log(min/max))));
 }
 
-// Curated one-click looks: palette + mode + grain + atmosphere combinations.
+// Look categories, in display order.
+const CATEGORIES = [
+  ['duotone','Duotone'], ['riso','Riso'], ['pop','Pop'],
+  ['soft','Soft'], ['onebit','1-Bit'], ['hardware','Hardware'], ['type','Type'],
+];
+
+// Curated looks. A look sets colour + tone + mode, but NOT detail — that stays the
+// user's, global. The exceptions carry `detail` and set carriesDetail:true (Hardware
+// devices at native resolution, and STIPPLE); those stash and restore the user's detail.
 const LOOK_PRESETS = [
-  { name:'BLAME!', ref:'Blame! (1998)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#f0f0f0',anchor:1}], detail:48, contrast:50, midtones:0.9, highlights:1.15, shadows:1.25 } },
-  { name:'HOLLOW KNIGHT', ref:'Hollow Knight (2017)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#d8e8f8',anchor:1}], detail:48, contrast:45, midtones:0.95, highlights:1.1 } },
-  { name:'GATTACA', ref:'Gattaca (1997)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#141810',anchor:0},{color:'#c8b46c',anchor:1}], detail:48, contrast:40, highlights:0.95 } },
-  { name:'2001', ref:'2001: A Space Odyssey (1968)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], detail:60, contrast:55, midtones:0.85, highlights:1.2, shadows:1.35 } },
-  { name:'METROPOLIS', ref:'Metropolis (1927)', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0808', htPaper:'#f0ece4', htAngle:45, detail:42, contrast:20, midtones:1.1, highlights:0.9 } },
-  { name:'LA JETÉE', ref:'La Jetée (1962)', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0808', htPaper:'#e8e4dc', htAngle:45, detail:60, contrast:15, midtones:1.2, highlights:0.85 } },
-  { name:'AKIRA MANGA', ref:'Akira (1982)', settings:{ mode:'halftone', htShape:'square', htInk:'#0a0808', htPaper:'#f4f0e8', htAngle:45, detail:55, contrast:30 } },
-  { name:'WONKA', ref:'Willy Wonka & the Chocolate Factory (1971)', settings:{ mode:'halftone', htShape:'diamond', htInk:'#1400a8', htPaper:'#ff600a', htAngle:9, detail:100, contrast:82, midtones:1.35, shadows:2.5, phosphorGlow:35 } },
-  { name:'STRANGER THINGS', ref:'Stranger Things (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#660000',anchor:0.35},{color:'#ffffff',anchor:1}], detail:40, contrast:70, midtones:0.7, highlights:1.4, shadows:1.25, phosphorGlow:40, noise:50 } },
-  { name:'METAL GEAR', ref:'Metal Gear Solid (1998)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#050a05',anchor:0},{color:'#304430',anchor:0.5},{color:'#c8e0b0',anchor:1}], detail:40, contrast:30, midtones:1.1, highlights:0.9, shadows:1.2, phosphorGlow:15, scanlines:50 } },
-  { name:'STALKER', ref:'Stalker (1979)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0c0a08',anchor:0},{color:'#8a7e6c',anchor:0.45},{color:'#f0ece4',anchor:1}], detail:48, contrast:8, midtones:1.5, highlights:0.65, shadows:0.72, phosphorGlow:12, luminanceLift:12 } },
-  { name:'EX MACHINA', ref:'Ex Machina (2014)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#060808',anchor:0},{color:'#5a6a60',anchor:0.45},{color:'#f0f4f0',anchor:1}], detail:48, contrast:40, midtones:0.95, highlights:1.05 } },
-  { name:'DOOM', ref:'Doom (1993)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#880000',anchor:0.4},{color:'#ff8844',anchor:1}], detail:34, contrast:60, midtones:0.8, highlights:1.3, shadows:1.3, phosphorGlow:30 } },
-  { name:'CASTLEVANIA', ref:'Castlevania (1986)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000010',anchor:0},{color:'#880000',anchor:0.5},{color:'#f0e8d0',anchor:1}], detail:28, contrast:50, midtones:0.9, highlights:1.1, shadows:1.3 } },
-  { name:'ASTRAL CHAIN', ref:'Astral Chain (2019)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#110022',anchor:0.2},{color:'#0044ff',anchor:0.55},{color:'#ffffff',anchor:1}], detail:40, contrast:65, midtones:0.8, highlights:1.3, shadows:1.2, phosphorGlow:50, chromaShift:3 } },
-  { name:'SHOVEL KNIGHT', ref:'Shovel Knight (2014)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#1a0044',anchor:0.33},{color:'#6600aa',anchor:0.66},{color:'#e8d888',anchor:1}], detail:20, contrast:50, midtones:0.9, highlights:1.1 } },
-  { name:'STARDEW VALLEY', ref:'Stardew Valley (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0d2818',anchor:0.04},{color:'#1e5631',anchor:0.29},{color:'#7ac74f',anchor:0.55},{color:'#ffd23f',anchor:0.67},{color:'#ff8fb1',anchor:0.89}], detail:50, contrast:17, midtones:1.05, highlights:0.75, shadows:1.2 } },
-  { name:'OUTRUN', ref:'OutRun (1986)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0020',anchor:0},{color:'#660066',anchor:0.3},{color:'#cc0088',anchor:0.65},{color:'#ffee00',anchor:1}], detail:34, contrast:50, midtones:0.9, highlights:1.2, shadows:1.2, phosphorGlow:35 } },
-  { name:'HAL 9000', ref:'2001: A Space Odyssey (1968)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0000',anchor:0},{color:'#3d0000',anchor:0.4},{color:'#8b0000',anchor:0.65},{color:'#cc2200',anchor:0.85},{color:'#ff6644',anchor:1}], detail:40, contrast:30, midtones:1.2, highlights:0.85, shadows:1.2, phosphorGlow:20, scanlines:50 } },
-  { name:'BLADE RUNNER', ref:'Blade Runner (1982)', settings:{ mode:'halftone', htShape:'circle', htInk:'#1a0a00', htPaper:'#c8762a', htAngle:30, detail:42, contrast:25, midtones:1.1, highlights:0.9, phosphorGlow:35 } },
-  { name:'GHOST IN THE SHELL', ref:'Ghost in the Shell (1995)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000d0d',anchor:0},{color:'#003333',anchor:0.35},{color:'#006666',anchor:0.6},{color:'#00ccaa',anchor:0.85},{color:'#e0fffa',anchor:1}], detail:48, contrast:40, midtones:1.1, highlights:0.9, phosphorGlow:40, scanlines:30 } },
-  { name:'TRON', ref:'Tron (1982)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#001a33',anchor:0.3},{color:'#003366',anchor:0.55},{color:'#0099cc',anchor:0.8},{color:'#00eeff',anchor:1}], detail:40, contrast:60, midtones:0.8, highlights:1.4, shadows:1.25, phosphorGlow:50 } },
-  { name:'THE MATRIX', ref:'The Matrix (1999)', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#00ff41', asciiBg:'#000000', asciiCutout:22, detail:50, phosphorGlow:30, scanlines:25 } },
-  { name:'NEUROMANCER', ref:'Neuromancer (1984)', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#aaff44', asciiBg:'#001100', asciiCutout:22, detail:57, phosphorGlow:35 } },
-  { name:'SOLARIS', ref:'Solaris (1972)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0d0800',anchor:0},{color:'#3d2b1f',anchor:0.2},{color:'#7a5c3f',anchor:0.45},{color:'#c8a882',anchor:0.72},{color:'#f5ead8',anchor:1}], detail:48, contrast:10, midtones:1.4, highlights:0.7, shadows:0.8, phosphorGlow:25 } },
-  { name:'DUNE', ref:'Dune (2021)', settings:{ mode:'halftone', htShape:'circle', htInk:'#2a1a0a', htPaper:'#e8c878', htAngle:22, detail:46, contrast:20, midtones:1.1, highlights:0.9, phosphorGlow:15 } },
-  { name:'HER', ref:'Her (2013)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#2d0f0f',anchor:0},{color:'#7a3030',anchor:0.2},{color:'#c47850',anchor:0.5},{color:'#e8b090',anchor:0.78},{color:'#faeae0',anchor:1}], detail:48, contrast:15, midtones:1.3, highlights:0.85, shadows:0.85, phosphorGlow:40 } },
-  { name:'ARRIVAL', ref:'Arrival (2016)', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0f1a', htPaper:'#8899aa', htAngle:60, detail:50, contrast:20, phosphorGlow:20 } },
-  { name:'VIDEODROME', ref:'Videodrome (1983)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a0008',anchor:0},{color:'#330022',anchor:0.2},{color:'#882244',anchor:0.5},{color:'#cc6688',anchor:0.78},{color:'#ffddee',anchor:1}], detail:48, contrast:35, highlights:1.1, shadows:0.85, scanlines:35, noise:60, chromaShift:6 } },
-  { name:'BRAZIL', ref:'Brazil (1985)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0f0a00',anchor:0},{color:'#4a3800',anchor:0.16},{color:'#8a6a20',anchor:0.4},{color:'#c8a850',anchor:0.6},{color:'#8fd0ff',anchor:1}], detail:40, contrast:25, midtones:1.1, highlights:0.95 } },
-  { name:'PAPRIKA', ref:'Paprika (2006)', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, detail:42, phosphorGlow:30 } },
-  { name:'2046', ref:'2046 (2004)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a0000',anchor:0},{color:'#3d0010',anchor:0.2},{color:'#880030',anchor:0.5},{color:'#cc4422',anchor:0.78},{color:'#f0c060',anchor:1}], detail:48, contrast:20, midtones:1.2, highlights:0.8, shadows:0.82, phosphorGlow:45 } },
-  { name:'STRANGE DAYS', ref:'Strange Days (1995)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050010',anchor:0},{color:'#1a0044',anchor:0.2},{color:'#5500aa',anchor:0.5},{color:'#cc44ff',anchor:0.78},{color:'#f0ccff',anchor:1}], detail:48, contrast:45, midtones:0.95, highlights:1.15, scanlines:25, chromaShift:3 } },
-  { name:'WINGS OF HONNEAMISE', ref:'Wings of Honneamise (1987)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a1020',anchor:0},{color:'#12304f',anchor:0.16},{color:'#4488aa',anchor:0.42},{color:'#f0c060',anchor:0.78},{color:'#fff4e0',anchor:1}], detail:48, contrast:18, midtones:1.15, highlights:0.85, shadows:0.85, phosphorGlow:25 } },
-  { name:'PARANOIA AGENT', ref:'Paranoia Agent (2004)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0010',anchor:0},{color:'#2a0044',anchor:0.2},{color:'#882288',anchor:0.5},{color:'#ffaacc',anchor:0.78},{color:'#fff0f8',anchor:1}], detail:40, contrast:40, highlights:1.1, scanlines:20, noise:30 } },
-  { name:'BACK TO THE FUTURE', ref:'Back to the Future (1985)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000511',anchor:0},{color:'#001a44',anchor:0.3},{color:'#0044cc',anchor:0.6},{color:'#ff6600',anchor:0.85},{color:'#ffffff',anchor:1}], detail:40, contrast:55, midtones:0.85, highlights:1.3, shadows:1.25, phosphorGlow:50, chromaShift:2 } },
-  { name:'INTERSTELLAR', ref:'Interstellar (2014)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#050200',anchor:0},{color:'#1a0800',anchor:0.4},{color:'#4a2000',anchor:0.65},{color:'#c87020',anchor:0.85},{color:'#f8e090',anchor:1}], detail:48, contrast:35, midtones:1.1, highlights:0.8, phosphorGlow:50 } },
-  { name:'INCEPTION', ref:'Inception (2010)', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0c10', htPaper:'#9aa0aa', htAngle:35, detail:50, contrast:25, phosphorGlow:10 } },
-  { name:'AVATAR', ref:'Avatar (2009)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#000814',anchor:0},{color:'#001a33',anchor:0.35},{color:'#003366',anchor:0.6},{color:'#0099aa',anchor:0.82},{color:'#44ffcc',anchor:1}], detail:48, contrast:45, highlights:1.2, shadows:1.2, phosphorGlow:60 } },
-  { name:'WESTWORLD', ref:'Westworld (2016)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#060608',anchor:0},{color:'#1a1c20',anchor:0.22},{color:'#8b1a1a',anchor:0.5},{color:'#9aa0aa',anchor:0.72},{color:'#f0f4f8',anchor:1}], detail:40, contrast:45, midtones:0.9, highlights:1.1, scanlines:30 } },
-  { name:'CYBERPUNK', ref:'Cyberpunk: Edgerunners (2022)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0a0010',anchor:0},{color:'#330022',anchor:0.03},{color:'#880044',anchor:0.23},{color:'#ff0088',anchor:0.62},{color:'#ffee00',anchor:0.94}], detail:48, contrast:55, midtones:0.9, highlights:1.3, phosphorGlow:40, scanlines:10, chromaShift:1.5 } },
-  { name:'COWBOY BEBOP', ref:'Cowboy Bebop (1998)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#080810',anchor:0},{color:'#14202a',anchor:0.14},{color:'#1f5c66',anchor:0.4},{color:'#e0a13c',anchor:0.72},{color:'#f6e6b0',anchor:1}], detail:48, contrast:32, midtones:1.1, highlights:0.85, shadows:0.85, phosphorGlow:25 } },
-  { name:'SERIAL EXP. LAIN', ref:'Serial Experiments Lain (1998)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#050508',anchor:0},{color:'#1a1420',anchor:0.16},{color:'#6a3a2a',anchor:0.4},{color:'#d8a24a',anchor:0.62},{color:'#c8b8ff',anchor:1}], detail:48, contrast:35, highlights:1.1, scanlines:40, noise:60, chromaShift:3 } },
-  { name:'PERFECT BLUE', ref:'Perfect Blue (1997)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#00081c',anchor:0},{color:'#04246e',anchor:0.22},{color:'#ff3d81',anchor:0.5},{color:'#7fa8e8',anchor:0.74},{color:'#f2f4ff',anchor:1}], detail:48, contrast:42, midtones:1.05, highlights:0.95, shadows:0.88, scanlines:20 } },
-  { name:'NAUSICAÄ', ref:'Nausicaä of the Valley of the Wind (1984)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a0818',anchor:0},{color:'#241a3a',anchor:0.14},{color:'#5a3a7a',anchor:0.34},{color:'#3fbf9f',anchor:0.6},{color:'#eaf5a0',anchor:1}], detail:48, contrast:22, midtones:1.2, highlights:0.9, phosphorGlow:18 } },
-  { name:'DOROHEDORO', ref:'Dorohedoro (2000)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#080808',anchor:0},{color:'#1c1c10',anchor:0.25},{color:'#444430',anchor:0.55},{color:'#888860',anchor:0.78},{color:'#44ff44',anchor:1}], detail:40, contrast:40, highlights:1.05, noise:40 } },
-  { name:'SILENT HILL', ref:'Silent Hill (1999)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0a0505',anchor:0},{color:'#2a1010',anchor:0.2},{color:'#6a3020',anchor:0.5},{color:'#aa7060',anchor:0.78},{color:'#e0c8b8',anchor:1}], detail:48, contrast:25, midtones:1.1, highlights:0.8, shadows:0.8, phosphorGlow:20, luminanceLift:10, noise:60 } },
-  { name:'STREETS OF RAGE', ref:'Streets of Rage (1991)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000820',anchor:0},{color:'#001850',anchor:0.25},{color:'#0044aa',anchor:0.55},{color:'#ff8800',anchor:0.82},{color:'#ffeeaa',anchor:1}], detail:28, contrast:40, highlights:1.1, phosphorGlow:25 } },
-  { name:'FINAL FANTASY VII', ref:'Final Fantasy VII (1997)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050010',anchor:0},{color:'#100030',anchor:0.2},{color:'#1a4a1a',anchor:0.55},{color:'#00cc44',anchor:0.82},{color:'#ccffaa',anchor:1}], detail:48, contrast:35, midtones:1.05, highlights:0.95, shadows:1.2, phosphorGlow:30, scanlines:20 } },
-  { name:'CHANTS OF SENNAAR', ref:'Chants of Sennaar (2023)', settings:{ mode:'halftone', htShape:'circle', htInk:'#3a1a08', htPaper:'#e8c888', htAngle:30, detail:55, contrast:20, midtones:1.1, highlights:0.9, phosphorGlow:10 } },
-  { name:'ANOTHER WORLD', ref:'Another World (1991)', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000000',anchor:0},{color:'#000820',anchor:0.15},{color:'#001060',anchor:0.5},{color:'#0044aa',anchor:0.8},{color:'#88ccff',anchor:1}], detail:34, contrast:65, midtones:0.75, highlights:1.1, shadows:1.35 } },
-  { name:'JOURNEY', ref:'Journey (2012)', settings:{ mode:'halftone', htShape:'circle', htInk:'#3a1a00', htPaper:'#f0c860', htAngle:20, detail:50, contrast:20, midtones:1.1, highlights:0.9, phosphorGlow:25 } },
-  { name:'CELESTE', ref:'Celeste (2018)', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#1a0a20',anchor:0},{color:'#3a2050',anchor:0.2},{color:'#c07090',anchor:0.55},{color:'#e8b8a0',anchor:0.82},{color:'#f8f0e0',anchor:1}], detail:48, contrast:20, midtones:1.25, highlights:0.85, shadows:0.85, phosphorGlow:20 } },
-  { name:'DISCO ELYSIUM', ref:'Disco Elysium (2019)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0c0c10',anchor:0},{color:'#2a2820',anchor:0.16},{color:'#4a4438',anchor:0.33},{color:'#6a6440',anchor:0.5},{color:'#8a8050',anchor:0.66},{color:'#b0a870',anchor:0.83},{color:'#e8e0b8',anchor:1}], detail:50, highlights:0.9, shadows:1.5 } },
-  { name:'AKIRA', ref:'Akira (1988)', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#000814',anchor:0},{color:'#03045e',anchor:0.2},{color:'#0077b6',anchor:0.5},{color:'#ff4d6d',anchor:0.8},{color:'#ffd6e0',anchor:1}], detail:48, contrast:50, midtones:0.9, highlights:1.2, shadows:1.2, noise:40 } },
-  { name:'ASCII CLASSIC', ref:'Classic ASCII Art', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#1c1814', asciiBg:'#f8f6f0', asciiInvert:true, asciiCutout:28, detail:65, contrast:20 } },
-  { name:'AMBER TERMINAL', ref:'Phosphor CRT Terminal', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#ffb000', asciiBg:'#140e06', asciiCutout:20, detail:57, phosphorGlow:30 } },
-  { name:'BLOCK CHARS', ref:'Unicode Block Art', settings:{ mode:'ascii', asciiRamp:'blocks', asciiFg:'#c8d8e8', asciiBg:'#0a0a0e', asciiCutout:20, detail:43 } },
-  { name:'NEON ASCII', ref:'Cyberpunk Terminal', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#ff00cc', asciiBg:'#040010', asciiCutout:22, detail:57, phosphorGlow:25 } },
-  { name:'ELECTRIC', ref:'Poster ASCII', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#f8f6f0', asciiBg:'#2c40d8', asciiInvert:true, asciiBold:false, asciiCutout:28, detail:65, contrast:20 } },
-  { name:'VAPORWAVE', ref:'A E S T H E T I C', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#ff71ce', asciiBg:'#2a0a4a', asciiInvert:true, asciiCutout:24, detail:57, phosphorGlow:20 } },
-  { name:'RISOGRAPH', ref:'Riso Print', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#141008', asciiBg:'#ff6a3d', asciiInvert:true, asciiCutout:26, detail:60, contrast:15 } },
-  { name:'BLUEPRINT', ref:'Drafting Table', settings:{ mode:'ascii', asciiRamp:'code', asciiFg:'#ffe14d', asciiBg:'#0a1f5c', asciiCutout:16, detail:55, contrast:15 } },
-  { name:'CMYK GLITCH', ref:'Misregistration', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#00e5ff', asciiBg:'#ff008c', asciiInvert:true, asciiCutout:22, detail:57, chromaShift:4 } },
-  { name:'TERMINAL GARDEN', ref:'Overgrown CRT', settings:{ mode:'ascii', asciiRamp:'symbols', asciiFg:'#eafce0', asciiBg:'#123b1e', asciiInvert:true, asciiCutout:22, detail:50, phosphorGlow:15 } },
-  { name:'RED ALERT', ref:'Warning Console', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#fff2f2', asciiBg:'#8b0000', asciiInvert:true, asciiCutout:20, detail:50, scanlines:25, phosphorGlow:15 } },
-  { name:'SUNSET BLOCKS', ref:'Dusk Mosaic', settings:{ mode:'ascii', asciiRamp:'blocks', asciiFg:'#ffd27a', asciiBg:'#2a0f3a', asciiInvert:true, asciiCutout:14, detail:42 } },
-  { name:'RUST', ref:'Duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#7a2a10',anchor:0},{color:'#f0dcc0',anchor:1}], detail:40, contrast:35, midtones:1.1, highlights:0.9 } },
-  { name:'NAVY', ref:'Duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a1428',anchor:0},{color:'#e8dfc8',anchor:1}], detail:40, contrast:35, midtones:1.1, highlights:0.9 } },
-  { name:'FOREST', ref:'Duotone', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0a2010',anchor:0},{color:'#eef4e0',anchor:1}], detail:48, contrast:30, midtones:1.15, highlights:0.9 } },
-  { name:'VIOLET', ref:'Duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#1a0838',anchor:0},{color:'#e8e0f4',anchor:1}], detail:40, contrast:40 } },
+  // ── Duotone ──
+  { name:'ROSE', category:'duotone', settings:{ mode:'halftone', htShape:'circle', htInk:'#4a1020', htPaper:'#f6d5c9', htAngle:45, contrast:20, midtones:1.1, highlights:0.9 } },
+  { name:'RUST', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#7a2a10',anchor:0},{color:'#f0dcc0',anchor:1}], contrast:35, midtones:1.1, highlights:0.9 } },
+  { name:'NAVY', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a1428',anchor:0},{color:'#e8dfc8',anchor:1}], contrast:35, midtones:1.1, highlights:0.9 } },
+  { name:'FOREST', category:'duotone', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0a2010',anchor:0},{color:'#eef4e0',anchor:1}], contrast:30, midtones:1.15, highlights:0.9 } },
+  { name:'VIOLET', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#1a0838',anchor:0},{color:'#e8e0f4',anchor:1}], contrast:40 } },
+  // ── Riso ──
+  { name:'AKIRA MANGA', category:'riso', settings:{ mode:'halftone', htShape:'square', htInk:'#0a0808', htPaper:'#f4f0e8', htAngle:45, contrast:30 } },
+  { name:'PAPRIKA', category:'riso', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, phosphorGlow:30 } },
+  { name:'BLADE RUNNER', category:'riso', settings:{ mode:'halftone', htShape:'circle', htInk:'#1a0a00', htPaper:'#c8762a', htAngle:30, contrast:25, midtones:1.1, highlights:0.9, phosphorGlow:35 } },
+  { name:'ARRIVAL', category:'riso', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0f1a', htPaper:'#8899aa', htAngle:60, contrast:20, phosphorGlow:20 } },
+  { name:'JOURNEY', category:'riso', settings:{ mode:'halftone', htShape:'line', htInk:'#3a1a00', htPaper:'#f0c860', htAngle:0, contrast:20, midtones:1.1, highlights:0.9, phosphorGlow:25 } },
+  { name:'DUSK', category:'riso', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#101826',anchor:0},{color:'#3a4a3a',anchor:0.3},{color:'#e8785a',anchor:0.64},{color:'#f0d8b0',anchor:0.92}], contrast:35, midtones:0.95, highlights:1.1, shadows:1.2 } },
+  // ── Pop ──
+  { name:'CYBERPUNK', category:'pop', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#0a0010',anchor:0},{color:'#330022',anchor:0.03},{color:'#880044',anchor:0.23},{color:'#ff0088',anchor:0.62},{color:'#ffee00',anchor:0.94}], contrast:55, midtones:0.9, highlights:1.3, phosphorGlow:40, scanlines:10, chromaShift:1.5 } },
+  { name:'AVATAR', category:'pop', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#000814',anchor:0},{color:'#001a33',anchor:0.35},{color:'#003366',anchor:0.6},{color:'#0099aa',anchor:0.82},{color:'#44ffcc',anchor:1}], contrast:45, highlights:1.2, shadows:1.2, phosphorGlow:60 } },
+  { name:'STREETS OF RAGE', category:'pop', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000820',anchor:0},{color:'#001850',anchor:0.25},{color:'#0044aa',anchor:0.55},{color:'#ff8800',anchor:0.82},{color:'#ffeeaa',anchor:1}], contrast:40, highlights:1.1, phosphorGlow:25 } },
+  // ── Soft ──
+  { name:'HER', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#2d0f0f',anchor:0},{color:'#7a3030',anchor:0.2},{color:'#c47850',anchor:0.5},{color:'#e8b090',anchor:0.78},{color:'#faeae0',anchor:1}], contrast:15, midtones:1.3, highlights:0.85, shadows:0.85, phosphorGlow:40 } },
+  { name:'CELESTE', category:'soft', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#1a0a20',anchor:0},{color:'#3a2050',anchor:0.2},{color:'#c07090',anchor:0.55},{color:'#e8b8a0',anchor:0.82},{color:'#f8f0e0',anchor:1}], contrast:20, midtones:1.25, highlights:0.85, shadows:0.85, phosphorGlow:20 } },
+  { name:'DISCO ELYSIUM', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0c0c10',anchor:0},{color:'#2a2820',anchor:0.16},{color:'#4a4438',anchor:0.33},{color:'#6a6440',anchor:0.5},{color:'#8a8050',anchor:0.66},{color:'#b0a870',anchor:0.83},{color:'#e8e0b8',anchor:1}], highlights:0.9, shadows:1.5 } },
+  // ── 1-Bit ──
+  { name:'2001', category:'onebit', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], contrast:55, midtones:0.85, highlights:1.2, shadows:1.35 } },
+  { name:'GATTACA', category:'onebit', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#141810',anchor:0},{color:'#c8b46c',anchor:1}], contrast:40, highlights:0.95 } },
+  { name:'HOLLOW KNIGHT', category:'onebit', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#d8e8f8',anchor:1}], contrast:45, midtones:0.95, highlights:1.1 } },
+  { name:'STIPPLE', category:'onebit', carriesDetail:true, settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050505',anchor:0},{color:'#f4f2ec',anchor:1}], detail:72, contrast:40, midtones:0.9, highlights:1.15, shadows:1.3 } },
+  // ── Hardware (adaptive + device gamut, native resolution) ──
+  { name:'GAME BOY', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gameboy', detail:30 } },
+  { name:'GAME BOY COLOR', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gbcolor', detail:30 } },
+  { name:'PLAYSTATION', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'playstation', detail:46 } },
+  { name:'COMMODORE 64', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'c64', detail:46 } },
+  { name:'AMIGA', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'amiga', detail:46 } },
+  { name:'ATARI ST', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'atarist', detail:46 } },
+  { name:'MACINTOSH', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], detail:55 } },
+  // ── Type ──
+  { name:'THE MATRIX', category:'type', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#00ff41', asciiBg:'#000000', asciiCutout:22, phosphorGlow:30, scanlines:25 } },
+  { name:'AMBER TERMINAL', category:'type', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#ffb000', asciiBg:'#140e06', asciiCutout:20, phosphorGlow:30 } },
+  { name:'ASCII CLASSIC', category:'type', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#1c1814', asciiBg:'#f8f6f0', asciiInvert:true, asciiCutout:32, contrast:30 } },
 ];
 
 const SOURCE_DEVICES = {
@@ -774,12 +742,15 @@ function fitDims(w, h, max) {
 // The palette swatches a preset card shows, so its look reads before the thumbnail renders.
 function presetSwatches(p) {
   const s = p.settings;
+  if (s.gamut && s.gamut !== 'full') {
+    const g = DEVICE_GAMUTS[s.gamut];
+    return g && g.palette ? g.palette.slice(0, 6) : ['#141414', '#4a4a4a', '#8a8a8a', '#d8d8d8'];
+  }
   if (s.mode === 'ascii') return [s.asciiBg || '#000', s.asciiFg || '#0f0'];
   if (s.mode === 'halftone') return [s.htPaper || '#eee', s.htInk || '#111'];
   return [...(s.palette || [])].sort((a, b) => a.anchor - b.anchor).map((e) => e.color);
 }
 
-const MODE_LABEL = { dither: 'DITHER', ascii: 'ASCII', halftone: 'HALFTONE' };
 const VIDEO_MAX_BYTES = 150 * 1024 * 1024; // soft cap; warn beyond this
 const GIF_MAX_DIM = 480;   // keep encoded GIFs light regardless of working resolution
 const VIDEO_FRAME_CAP = 60; // hard ceiling on frames processed from a clip
@@ -808,7 +779,6 @@ export default function Phosphor() {
   const [gamut, setGamut] = useState('full');             // adaptive colour constraint / device gamut
   const [detail, setDetail] = useState(55);   // unified 0-100, higher = more detail
   const [resLock, setResLock] = useState(false);
-  const [effectivePx, setEffectivePx] = useState(5);
   const [definition, setDefinition] = useState(1);
 
   const [asciiRamp, setAsciiRamp] = useState('standard');
@@ -856,7 +826,6 @@ export default function Phosphor() {
   const [aboutOpen, setAboutOpen] = useState(false);
 
   // ── Presets filter ──
-  const [presetFilter, setPresetFilter] = useState('all');
 
   // ── Undo / redo (settings history) ──
   const historyRef = useRef({ stack: [], index: -1 });
@@ -943,30 +912,23 @@ export default function Phosphor() {
     if (ctrlRef.current) ctrlRef.current.scrollTop = 0;
   };
 
+  // Detail is the user's, global. Most looks leave it alone. The few that carry detail
+  // (Hardware, Stipple) stash the current value on entry and restore it when the user
+  // moves to a look that doesn't carry detail — so stylised chunk never sticks.
+  const detailStash = useRef(null);
+  const setDetailOwned = (v) => { detailStash.current = null; setDetail(v); };
+
   const applyLookPreset = (p) => {
     setSourceDevice(null);
     setResLock(false);
     setActiveLook(p.name);
+    if (p.carriesDetail) {
+      if (detailStash.current === null) detailStash.current = detail;
+    } else if (detailStash.current !== null) {
+      setDetail(detailStash.current);
+      detailStash.current = null;
+    }
     applyLoadedSettings({ ...LOOK_BASE, ...p.settings });
-  };
-
-  const applySourceDevice = (key) => {
-    const d = SOURCE_DEVICES[key];
-    setActiveLook(null);
-    setSourceDevice(key); setMode(d.mode);
-    if(d.algo) setAlgo(d.algo);
-    if(d.palette) setPalette(d.palette.map(p=>mkEntry(p.color,p.anchor)));
-    if(d.asciiRamp) setAsciiRamp(d.asciiRamp);
-    if(d.asciiFg) setAsciiFg(d.asciiFg);
-    if(d.asciiBg) setAsciiBg(d.asciiBg);
-    if(d.asciiSize) setDetail(sizeToDetail('ascii',d.asciiSize));
-    if(d.htShape) setHtShape(d.htShape);
-    if(d.htSize) setDetail(sizeToDetail('halftone',d.htSize));
-    if(d.htAngle) setHtAngle(d.htAngle);
-    if(d.htInk) setHtInk(d.htInk);
-    if(d.htPaper) setHtPaper(d.htPaper);
-    // Show the device's authentic pixel grid immediately; the checkbox can still turn it off.
-    setResLock(!!d.width);
   };
 
   const applyPalettePreset = (key) => {
@@ -1115,28 +1077,34 @@ export default function Phosphor() {
   useEffect(() => {
     if (!imageSrc) return;
     let cancelled = false;
-    const img = new Image();
-    img.onload = () => {
-      if (cancelled) return;
-      setLookThumbs({});   // drop stale thumbnails of the previous image
-      const W = 200, H = Math.max(1, Math.round(W * img.naturalHeight / img.naturalWidth));
-      let i = 0;
-      const step = () => {
+    const run = () => {
+      const img = new Image();
+      img.onload = () => {
         if (cancelled) return;
-        const batch = {};
-        for (let n = 0; n < 6 && i < LOOK_PRESETS.length; n++, i++) {
-          const p = LOOK_PRESETS[i];
-          try { batch[p.name] = renderSettingsToCanvas(img, { ...LOOK_BASE, ...p.settings }, W, H).toDataURL('image/png'); }
-          catch { /* skip a look that fails to render */ }
-        }
-        setLookThumbs(prev => ({ ...prev, ...batch }));
-        if (i < LOOK_PRESETS.length) setTimeout(step, 0);
+        setLookThumbs({});   // drop stale thumbnails
+        const W = 200, H = Math.max(1, Math.round(W * img.naturalHeight / img.naturalWidth));
+        let i = 0;
+        const step = () => {
+          if (cancelled) return;
+          const batch = {};
+          for (let n = 0; n < 6 && i < LOOK_PRESETS.length; n++, i++) {
+            const p = LOOK_PRESETS[i];
+            // Non-carrying looks render at the user's current detail, so the shelf shows
+            // "your photo, this palette, your resolution". Carrying looks use their own.
+            const s = { ...LOOK_BASE, ...p.settings, detail: p.carriesDetail ? p.settings.detail : detail };
+            try { batch[p.name] = renderSettingsToCanvas(img, s, W, H).toDataURL('image/png'); }
+            catch { /* skip a look that fails to render */ }
+          }
+          setLookThumbs(prev => ({ ...prev, ...batch }));
+          if (i < LOOK_PRESETS.length) setTimeout(step, 0);
+        };
+        step();
       };
-      step();
+      img.src = imageSrc;
     };
-    img.src = imageSrc;
-    return () => { cancelled = true; };
-  }, [imageSrc]);
+    const t = setTimeout(run, 220); // debounce so dragging detail doesn't thrash re-renders
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [imageSrc, detail]);
 
   useEffect(() => { viewRef.current = {zoom, pan}; }, [zoom, pan]);
 
@@ -1264,7 +1232,6 @@ export default function Phosphor() {
     const dev=sourceDevice?SOURCE_DEVICES[sourceDevice]:null;
     // Detail -> mode size; native res-lock overrides dither to the device grid. D (definition) supersamples.
     const px=resLock&&dev?.width?Math.max(1,Math.round(w/dev.width)):Math.max(1,detailToSize('dither',detail)*D);
-    setEffectivePx(Math.max(1,Math.round(px/D)));
 
     let canvas;
     const tp=transparentBg;
@@ -1597,64 +1564,40 @@ export default function Phosphor() {
 
             <div ref={ctrlRef} className="ctrl flex-1 overflow-y-auto flex flex-col">
 
-            {activeTab==='presets' && <div className="anim-fadein flex flex-col">
-              <Panel label="Looks">
-                <div className="flex gap-1 mb-1">
-                  {[['all','ALL'],['dither','DITHER'],['ascii','ASCII'],['halftone','HALFTONE']].map(([v,l])=>(
-                    <button key={v} onClick={()=>setPresetFilter(v)}
-                      className={`flex-1 py-1 text-[10px] tracking-wide border transition-colors ${presetFilter===v?'border-amber-600 text-amber-100 bg-amber-950/40':'border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600'}`}>
-                      {l}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {LOOK_PRESETS.filter(p=>presetFilter==='all'||p.settings.mode===presetFilter).map(p=>{
-                    const on=activeLook===p.name;
-                    const swatches=presetSwatches(p);
-                    return (
-                    <button key={p.name} onClick={()=>applyLookPreset(p)} title={p.ref?`${p.name} — ${p.ref}`:p.name}
-                      className={`group flex flex-col overflow-hidden border transition-colors ${on?'border-amber-600':'border-zinc-800 hover:border-zinc-600'}`}>
-                      <div className="relative aspect-[16/10] w-full bg-zinc-900 overflow-hidden">
-                        {lookThumbs[p.name]
-                          ? <img src={lookThumbs[p.name]} alt="" className="w-full h-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
-                          : <div className="w-full h-full animate-pulse bg-zinc-800"/>}
-                        <div className="absolute top-0 left-0 px-1 py-px text-[7px] leading-none tracking-wider text-zinc-300 bg-black/65">{MODE_LABEL[p.settings.mode]}</div>
-                      </div>
-                      <div className="flex h-1 w-full">
-                        {swatches.map((c,i)=><span key={i} style={{background:c,flex:1}}/>)}
-                      </div>
-                      <div className={`text-[10px] leading-tight py-1 px-0.5 text-center truncate ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
-                    </button>
-                  );})}
-                </div>
-              </Panel>
-              <Panel label="Devices">
-                <div className="grid grid-cols-2 gap-1.5">
-                  {Object.entries(SOURCE_DEVICES).map(([key,dev])=>{
-                    const Icon=DEVICE_ICONS[key]||Monitor;
-                    return (
-                    <button key={key} onClick={()=>applySourceDevice(key)}
-                      className={`btn flex items-center justify-center gap-1.5 ${sourceDevice===key?'on':''}`}>
-                      <Icon size={12} className="shrink-0"/> <span className="truncate">{dev.name}</span>
-                    </button>
-                  );})}
-                </div>
-                {sourceDevice && (
-                  <>
-                    <div className="text-xs text-zinc-600 leading-relaxed mt-1">{SOURCE_DEVICES[sourceDevice].note}</div>
-                    {SOURCE_DEVICES[sourceDevice].width && (
-                      <label className="flex items-center justify-between text-xs text-zinc-500 mt-1">
-                        <span>lock native resolution
-                          <span className="text-zinc-600"> ({SOURCE_DEVICES[sourceDevice].width}×{SOURCE_DEVICES[sourceDevice].height})</span>
-                        </span>
-                        <input type="checkbox" checked={resLock} onChange={e=>setResLock(e.target.checked)} className="accent-amber-600"/>
-                      </label>
-                    )}
-                  </>
-                )}
-              </Panel>
-              <div className="text-xs text-zinc-600 leading-relaxed px-4 py-3">Pick a look or device, then fine-tune it in the Edit tab.</div>
-            </div>}
+            {activeTab==='presets' && <>
+              <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur border-b border-zinc-800 px-4 py-3">
+                <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
+              </div>
+              <div className="anim-fadein flex flex-col">
+              {CATEGORIES.map(([key,label])=>{
+                const looks = LOOK_PRESETS.filter(p=>p.category===key);
+                if(!looks.length) return null;
+                return (
+                <Panel key={key} label={label}>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {looks.map(p=>{
+                      const on=activeLook===p.name;
+                      const swatches=presetSwatches(p);
+                      return (
+                      <button key={p.name} onClick={()=>applyLookPreset(p)} title={p.name}
+                        className={`group flex flex-col overflow-hidden border transition-colors ${on?'border-amber-600':'border-zinc-800 hover:border-zinc-600'}`}>
+                        <div className="relative aspect-[16/10] w-full bg-zinc-900 overflow-hidden">
+                          {lookThumbs[p.name]
+                            ? <img src={lookThumbs[p.name]} alt="" className="w-full h-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
+                            : <div className="w-full h-full animate-pulse bg-zinc-800"/>}
+                        </div>
+                        <div className="flex h-1 w-full">
+                          {swatches.map((c,i)=><span key={i} style={{background:c,flex:1}}/>)}
+                        </div>
+                        <div className={`text-[10px] leading-tight py-1 px-0.5 text-center truncate ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
+                      </button>
+                    );})}
+                  </div>
+                </Panel>
+                );
+              })}
+              </div>
+            </>}
 
             {activeTab==='edit' && <div className="anim-fadein flex flex-col">
 
@@ -1692,9 +1635,7 @@ export default function Phosphor() {
                 </Field>
                 <NumSlider label="Screen angle" value={htAngle} min={0} max={90} step={1} onChange={setHtAngle}/>
               </>}
-              <NumSlider label="Detail" value={detail} min={0} max={100} step={1}
-                onChange={setDetail} disabled={mode==='dither'&&resLock&&!!sourceDevice}
-                hint={mode==='dither'&&resLock&&sourceDevice?`${effectivePx}px`:undefined}/>
+              <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
             </Panel>
 
             <Panel label="Appearance" action={appearanceDirty && <ResetButton onClick={resetAppearance} title="reset appearance"/>}>
@@ -1808,13 +1749,6 @@ export default function Phosphor() {
             </div>}
 
             <div className="pb-2"/>
-
-            {activeTab==='presets' &&
-              <div className="sticky bottom-0 mt-auto bg-zinc-950/95 backdrop-blur border-t border-zinc-800 px-4 py-3">
-                <NumSlider label="Detail" value={detail} min={0} max={100} step={1}
-                  onChange={setDetail} disabled={mode==='dither'&&resLock&&!!sourceDevice}
-                  hint={mode==='dither'&&resLock&&sourceDevice?`${effectivePx}px`:undefined}/>
-              </div>}
             </div>
           </div>
         </div>
