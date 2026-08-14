@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Code2, Eye, LayoutGrid, Grid3x3, Contrast, Palette, Radio, Save } from 'lucide-react';
+import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Code2, Eye, LayoutGrid, Grid3x3, Contrast, Palette, Radio, Save, Copy } from 'lucide-react';
 import LZString from 'lz-string';
 
 const GITHUB_URL = 'https://github.com/dreegu/phosphor';
@@ -93,7 +93,10 @@ const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlo
 
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
-const DETAIL_RANGE = { dither:[0.5,16], ascii:[4,20], halftone:[1,16] };
+// [finest, coarsest] cell size in px, calibrated to the 900px preview. Finest = 1px so the
+// top of the slider is meaningful in the preview (below that is sub-pixel and invisible);
+// coarsest raised for chunkier dots/cells at detail 0.
+const DETAIL_RANGE = { dither:[1,26], ascii:[5,26], halftone:[1.5,26] };
 // Geometric mapping: equal ratio per step, so dragging feels even across the whole range.
 function detailToSize(mode, detail){
   const [min,max] = DETAIL_RANGE[mode] || DETAIL_RANGE.halftone;
@@ -117,13 +120,13 @@ const CATEGORIES = [
 // devices at native resolution, and STIPPLE); those stash and restore the user's detail.
 const LOOK_PRESETS = [
   // ── Hardware (adaptive + device gamut, native resolution) ──
-  { name:'GAME BOY', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gameboy', detail:30 } },
-  { name:'GAME BOY COLOR', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gbcolor', detail:30 } },
-  { name:'PLAYSTATION', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'playstation', detail:46 } },
-  { name:'COMMODORE 64', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'c64', detail:46 } },
-  { name:'AMIGA', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'amiga', detail:46 } },
-  { name:'ATARI ST', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'atarist', detail:46 } },
-  { name:'MACINTOSH', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], detail:55 } },
+  { name:'GAME BOY', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gameboy', detail:47 } },
+  { name:'GAME BOY COLOR', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gbcolor', detail:47 } },
+  { name:'PLAYSTATION', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'playstation', detail:68 } },
+  { name:'COMMODORE 64', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'c64', detail:68 } },
+  { name:'AMIGA', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'amiga', detail:68 } },
+  { name:'ATARI ST', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'atarist', detail:68 } },
+  { name:'MACINTOSH', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], detail:83 } },
   // ── Soft ──
   { name:'HER', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#2d0f0f',anchor:0},{color:'#7a3030',anchor:0.2},{color:'#c47850',anchor:0.5},{color:'#e8b090',anchor:0.78},{color:'#faeae0',anchor:1}], contrast:15, midtones:1.3, highlights:0.85, shadows:0.85, phosphorGlow:40 } },
   { name:'CELESTE', category:'soft', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#1a0a20',anchor:0},{color:'#3a2050',anchor:0.2},{color:'#c07090',anchor:0.55},{color:'#e8b8a0',anchor:0.82},{color:'#f8f0e0',anchor:1}], contrast:20, midtones:1.25, highlights:0.85, shadows:0.85, phosphorGlow:20 } },
@@ -162,7 +165,7 @@ const LOOK_PRESETS = [
   { name:'2001', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], contrast:55, midtones:0.85, highlights:1.2, shadows:1.35 } },
   { name:'GATTACA', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#141810',anchor:0},{color:'#c8b46c',anchor:1}], contrast:40, highlights:0.95 } },
   { name:'HOLLOW KNIGHT', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#d8e8f8',anchor:1}], contrast:45, midtones:0.95, highlights:1.1 } },
-  { name:'STIPPLE', category:'mono', carriesDetail:true, settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050505',anchor:0},{color:'#f4f2ec',anchor:1}], detail:72, contrast:40, midtones:0.9, highlights:1.15, shadows:1.3 } },
+  { name:'STIPPLE', category:'mono', carriesDetail:true, settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050505',anchor:0},{color:'#f4f2ec',anchor:1}], detail:85, contrast:40, midtones:0.9, highlights:1.15, shadows:1.3 } },
   // ── Riso ──
   { name:'AKIRA MANGA', category:'riso', settings:{ mode:'halftone', htShape:'square', htInk:'#0a0808', htPaper:'#f4f0e8', htAngle:45, contrast:30 } },
   { name:'PAPRIKA', category:'riso', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, phosphorGlow:30 } },
@@ -217,6 +220,7 @@ function mkEntry(color, anchor) { return { id: _id++, color, anchor }; }
 // Error-diffusion kernels: taps are [dx,dy,weight], distributed over div.
 const DIFFUSION_KERNELS = {
   diffusion: { div:16, taps:[[1,0,7],[-1,1,3],[0,1,5],[1,1,1]] },                                                        // Floyd–Steinberg
+  jjn:       { div:48, taps:[[1,0,7],[2,0,5],[-2,1,3],[-1,1,5],[0,1,7],[1,1,5],[2,1,3],[-2,2,1],[-1,2,3],[0,2,5],[1,2,3],[2,2,1]] }, // Jarvis–Judice–Ninke
   stucki:    { div:42, taps:[[1,0,8],[2,0,4],[-2,1,2],[-1,1,4],[0,1,8],[1,1,4],[2,1,2],[-2,2,1],[-1,2,2],[0,2,4],[1,2,2],[2,2,1]] },
   sierra:    { div:32, taps:[[1,0,5],[2,0,3],[-2,1,2],[-1,1,4],[0,1,5],[1,1,4],[2,1,2],[-1,2,2],[0,2,3],[1,2,2]] },
 };
@@ -766,9 +770,10 @@ export default function Phosphor() {
   const [chromaShift, setChromaShift] = useState(0);
 
   const [transparentBg, setTransparentBg] = useState(false);
-  const [format, setFormat] = useState('png');
+  const [format, setFormat] = useState('jpeg');
   const [outputUrl, setOutputUrl] = useState(null);
   const [shared, setShared] = useState(false);
+  const [copied, setCopied] = useState(false);
   const imgRef = useRef(null);
   const outputCanvasRef = useRef(null);
   const ctrlRef = useRef(null);
@@ -1321,6 +1326,20 @@ export default function Phosphor() {
     a.href = url; a.click();
   };
 
+  // Copy the rendered image (PNG — the only format browsers accept for image clipboard)
+  // at native resolution. ClipboardItem is created synchronously with a blob promise so
+  // Safari accepts it inside the click gesture.
+  const handleCopy = async () => {
+    if (!navigator.clipboard || !window.ClipboardItem) return;
+    const canvas = composeOutput(EXPORT_MAX);
+    if (!canvas) return;
+    try {
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      setCopied(true); setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard blocked; ignore */ }
+  };
+
   const updateColor  = (id,hex) => { setPaletteKey(null); setPalette(p=>p.map(e=>e.id===id?{...e,color:hex}:e)); };
   const updateAnchor = (id,val) => { setPaletteKey(null); setPalette(p=>p.map(e=>e.id===id?{...e,anchor:val}:e)); };
   const addColor     = () => { if(palette.length<8){ setPaletteKey(null); setPalette(p=>[...p,mkEntry('#888888',0.5)]); } };
@@ -1374,7 +1393,7 @@ export default function Phosphor() {
       {mode==='dither' &&
         <Field label="Pattern">
           <Dropdown value={algo} onChange={setAlgo}
-            options={[['bayer','Grid'],['cross','Cross'],['diffusion','Grain'],['atkinson','Atkinson'],['stucki','Stucki'],['sierra','Sierra'],['bluenoise','Blue noise']]}/>
+            options={[['bayer','Grid'],['cross','Cross'],['diffusion','Floyd–Steinberg'],['jjn','Jarvis'],['stucki','Stucki'],['sierra','Sierra'],['atkinson','Atkinson'],['bluenoise','Blue noise']]}/>
         </Field>}
       {mode==='ascii' &&
         <Field label="Character set">
@@ -1592,7 +1611,7 @@ export default function Phosphor() {
           </label>
           <div className="hidden md:block">
             <ExportMenu format={format} setFormat={setFormat}
-              transparentBg={transparentBg} setTransparentBg={setTransparentBg} onDownload={handleDownload}/>
+              transparentBg={transparentBg} setTransparentBg={setTransparentBg} onDownload={handleDownload} onCopy={handleCopy} copied={copied}/>
           </div>
         </div>
       </div>
@@ -1683,7 +1702,7 @@ export default function Phosphor() {
               : activeTab==='share' ? <div className="anim-fadein flex flex-col">
                   <Panel label="Export">
                     <ExportBody format={format} setFormat={setFormat}
-                      transparentBg={transparentBg} setTransparentBg={setTransparentBg} onDownload={handleDownload}/>
+                      transparentBg={transparentBg} setTransparentBg={setTransparentBg} onDownload={handleDownload} onCopy={handleCopy} copied={copied}/>
                   </Panel>
                   {shareLinkPanel}
                 </div>
@@ -1888,7 +1907,7 @@ function Segmented({options,value,onChange}) {
 }
 
 // Export button with an options popover: format, resolution, transparency, then Download.
-function ExportMenu({format,setFormat,transparentBg,setTransparentBg,onDownload}) {
+function ExportMenu({format,setFormat,transparentBg,setTransparentBg,onDownload,onCopy,copied}) {
   const [open,setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -1907,7 +1926,7 @@ function ExportMenu({format,setFormat,transparentBg,setTransparentBg,onDownload}
         <div className="absolute right-0 mt-1 w-60 z-30 border border-zinc-700 bg-zinc-900 shadow-xl p-4">
           <ExportBody format={format} setFormat={setFormat}
             transparentBg={transparentBg} setTransparentBg={setTransparentBg}
-            onDownload={()=>{ onDownload(); setOpen(false); }}/>
+            onDownload={()=>{ onDownload(); setOpen(false); }} onCopy={onCopy} copied={copied}/>
         </div>}
     </div>
   );
@@ -1915,8 +1934,8 @@ function ExportMenu({format,setFormat,transparentBg,setTransparentBg,onDownload}
 
 // Export options body: format, resolution/vector notes, transparency, download.
 // Shared between the desktop header popover and the mobile Share tab.
-function ExportBody({format,setFormat,transparentBg,setTransparentBg,onDownload}) {
-  const formats = [['png','PNG'],['jpeg','JPEG'],['svg','SVG']];
+function ExportBody({format,setFormat,transparentBg,setTransparentBg,onDownload,onCopy,copied}) {
+  const formats = [['jpeg','JPEG'],['png','PNG'],['svg','SVG']];
   return (
     <div className="flex flex-col gap-3">
       <Field label="Format">
@@ -1935,6 +1954,11 @@ function ExportBody({format,setFormat,transparentBg,setTransparentBg,onDownload}
         className="tap-target flex items-center justify-center gap-2 py-2 border border-amber-600 bg-amber-950/40 text-amber-100 hover:bg-amber-900 text-xs tracking-wide transition-colors">
         <Download size={12}/> Download
       </button>
+      {format!=='svg' && onCopy &&
+        <button onClick={onCopy}
+          className="tap-target flex items-center justify-center gap-2 py-2 border border-zinc-700 text-zinc-300 hover:text-amber-300 hover:border-amber-700 text-xs tracking-wide transition-colors">
+          <Copy size={12}/> {copied ? 'Copied!' : 'Copy to clipboard'}
+        </button>}
     </div>
   );
 }
