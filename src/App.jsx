@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Code2, Eye, LayoutGrid, Grid3x3, Contrast, Palette, Radio, Save, Copy } from 'lucide-react';
+import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Eye, LayoutGrid, Grid3x3, Contrast, Palette, Radio, Save, Copy, Heart, Globe, Sparkles, SlidersHorizontal, Image as ImageIcon } from 'lucide-react';
 import LZString from 'lz-string';
 
-const GITHUB_URL = 'https://github.com/dreegu/phosphor';
+const GITHUB_URL = 'https://github.com/dreegu';   // profile
 const AUTHOR_URL = 'https://rodrigosilva.design';
+const LINKEDIN_URL = '';   // set to enable the LinkedIn icon in the About modal
+const DEFAULT_DETAIL = 55; // the global detail every non-device preset lands on
 
 
 
@@ -827,8 +829,8 @@ export default function Phosphor() {
   const [adaptiveCount, setAdaptiveCount] = useState(16); // adaptive palette size (default to max)
   const [gamut, setGamut] = useState('full');             // adaptive colour constraint / device gamut
   const [showAllDevices, setShowAllDevices] = useState(false);   // Devices section: reveal beyond the first row set
-  const [detail, setDetail] = useState(55);   // unified 0-100, higher = more detail
-  const detailRef = useRef(55); detailRef.current = detail;
+  const [detail, setDetail] = useState(DEFAULT_DETAIL);   // unified 0-100, higher = more detail
+  const detailRef = useRef(DEFAULT_DETAIL); detailRef.current = detail;
   const sweepRef = useRef(0);
   const pendingSweepRef = useRef(false);   // holds the target detail to animate to after an upload decodes
   // On upload, reveal the pixelisation by ramping detail 0 → the user's selected level.
@@ -1001,7 +1003,8 @@ export default function Phosphor() {
     const look = pickable[Math.floor(Math.random()*pickable.length)];
     applyLookPreset(look);
     // Land chunky and remember where to ramp to; the splash-lift effect plays the reveal.
-    bootSweepRef.current = look.carriesDetail ? look.settings.detail : detailRef.current;
+    // Non-device looks always reveal to the default detail — only devices carry their own.
+    bootSweepRef.current = look.carriesDetail ? look.settings.detail : DEFAULT_DETAIL;
     setDetail(0);
     if(img.fileName) setFileName(img.fileName);
     setZoom(1); setPan({x:0,y:0});
@@ -1880,17 +1883,47 @@ function Splash({hiding}) {
   );
 }
 
-// Dismissable about: modal on desktop, bottom sheet on mobile.
+// Brand glyphs — lucide dropped its brand icons, so these are inline.
+const GithubIcon = ({size=15}) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+    <path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.3-1.7-1.3-1.7-1.06-.72.08-.71.08-.71 1.17.08 1.79 1.2 1.79 1.2 1.04 1.79 2.73 1.27 3.4.97.1-.76.4-1.27.74-1.56-2.56-.29-5.26-1.28-5.26-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.43-2.7 5.4-5.28 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"/>
+  </svg>
+);
+const LinkedinIcon = ({size=15}) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+    <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.35V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.07 2.07 0 1 1 0-4.14 2.07 2.07 0 0 1 0 4.14ZM7.12 20.45H3.55V9h3.57v11.45ZM22.22 0H1.77C.8 0 0 .78 0 1.75v20.5C0 23.22.8 24 1.77 24h20.45c.98 0 1.78-.78 1.78-1.75V1.75C24 .78 23.2 0 22.22 0Z"/>
+  </svg>
+);
+const XIcon = ({size=14}) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+    <path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.65l-5.22-6.82-5.96 6.82H1.68l7.73-8.84L1.25 2.25h6.82l4.71 6.23 5.46-6.23Zm-1.16 17.52h1.83L7.01 4.13H5.05l12.03 15.64Z"/>
+  </svg>
+);
+
+// Dismissable about: full-height sheet on mobile, centred card on desktop.
 function AboutModal({onClose}) {
   useEffect(() => {
     const onKey = e => { if(e.key==='Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+  const socials = [
+    ['Website', AUTHOR_URL, <Globe size={15}/>],
+    ['GitHub', GITHUB_URL, <GithubIcon/>],
+    ['LinkedIn', LINKEDIN_URL, <LinkedinIcon/>],
+  ].filter(s => s[1]);
+  const steps = [
+    [<ImageIcon size={15}/>, 'Start with a photo', 'Upload your own or pick one of the built-in sample shots.'],
+    [<Sparkles size={15}/>, 'Choose a look', 'Browse presets inspired by films, games and real hardware — or hit a device to match its palette and pixel density.'],
+    [<SlidersHorizontal size={15}/>, 'Fine-tune the render', 'Dial in detail, dithering, colour, and CRT atmosphere — glow, scanlines, noise.'],
+    [<Download size={15}/>, 'Export full resolution', 'Download JPEG, PNG or SVG, or copy to clipboard. No watermark, no account.'],
+  ];
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70" onClick={onClose}
+      style={{paddingTop:'env(safe-area-inset-top)'}}>
       <div onClick={e=>e.stopPropagation()}
-        className="anim-fadein w-full sm:w-[440px] max-h-[85vh] overflow-y-auto bg-zinc-950 border border-zinc-800 sm:rounded p-6 flex flex-col gap-4">
+        className="anim-fadein w-full h-[92dvh] sm:h-auto sm:w-[440px] sm:max-h-[85vh] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-t-2xl sm:rounded-lg p-6 flex flex-col gap-5"
+        style={{paddingBottom:'calc(1.5rem + env(safe-area-inset-bottom))'}}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-2">
             <img src="/favicon.png" alt="" className="w-7 h-7 shrink-0 rounded-[3px]"/>
@@ -1900,21 +1933,43 @@ function AboutModal({onClose}) {
             <X size={14}/>
           </button>
         </div>
+
         <p className="text-xl text-amber-100 leading-snug">A lo-fi visual studio.</p>
         <p className="text-xs text-zinc-400 leading-relaxed">
           Convert photos into dithered, halftone, and ASCII retro-display art.
           Features CRT atmospheric effects and a curated collection of presets inspired by
           my favorite films, series, and video games.
         </p>
-        <div className="flex flex-col gap-2 pt-1">
-          <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer"
-            className="tap-target flex items-center gap-2 text-xs text-zinc-400 hover:text-amber-300 border border-zinc-800 hover:border-amber-800 px-3 py-2 transition-colors">
-            <Info size={13}/> Built by Rodrigo Silva — rodrigosilva.design
-          </a>
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer"
-            className="tap-target flex items-center gap-2 text-xs text-zinc-400 hover:text-amber-300 border border-zinc-800 hover:border-amber-800 px-3 py-2 transition-colors">
-            <Code2 size={13}/> Source on GitHub
-          </a>
+
+        {/* author + social icons */}
+        <div className="flex items-center justify-between gap-3 flex-wrap border-t border-zinc-800 pt-4">
+          <p className="text-sm text-zinc-400">
+            Made with <span className="text-red-500">♥</span> by{' '}
+            <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer"
+              className="text-amber-300 hover:text-amber-200 hover:underline">Rodrigo Silva</a>
+          </p>
+          <div className="flex items-center gap-2">
+            {socials.map(([label,href,icon]) => (
+              <a key={label} href={href} target="_blank" rel="noopener noreferrer" title={label} aria-label={label}
+                className="tap-target flex items-center justify-center w-9 h-9 rounded-full border border-zinc-800 text-zinc-400 hover:text-amber-300 hover:border-amber-700 transition-colors">
+                {icon}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* how to */}
+        <div className="border border-zinc-800 rounded-lg p-4 flex flex-col gap-4">
+          <div className="text-[10px] tracking-[0.2em] text-zinc-600">HOW TO CREATE RETRO ART</div>
+          {steps.map(([icon,title,desc]) => (
+            <div key={title} className="flex gap-3">
+              <div className="mt-0.5 shrink-0 text-amber-400/80">{icon}</div>
+              <div>
+                <div className="text-sm text-zinc-200 leading-tight">{title}</div>
+                <div className="text-xs text-zinc-500 leading-relaxed mt-0.5">{desc}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
