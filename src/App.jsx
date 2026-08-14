@@ -1357,14 +1357,15 @@ export default function Phosphor() {
     const t2 = setTimeout(() => setBooting(false), wait + 550);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [booting, outputUrl]);
-  // First visit lands chunky (detail 0, set in shuffleAll); once the splash lifts, ramp
-  // the pixelisation up to the landing look's real detail — same reveal as an upload.
+  // First visit lands chunky (detail 0, set in shuffleAll); the moment the splash STARTS
+  // fading, ramp the pixelisation up to the landing look's real detail — so the reveal
+  // plays as the logo leaves, with no dead gap, instead of waiting for it to fully unmount.
   useEffect(() => {
-    if (booting || bootSweepRef.current === false) return;
+    if (!bootHiding || bootSweepRef.current === false) return;
     const target = bootSweepRef.current;
     bootSweepRef.current = false;
     sweepDetail(target);
-  }, [booting]);
+  }, [bootHiding]);
   // Safety net: never trap the user behind the splash if a render never lands.
   useEffect(() => {
     const t = setTimeout(() => { setBootHiding(true); setTimeout(() => setBooting(false), 550); }, 5000);
