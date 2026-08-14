@@ -828,6 +828,23 @@ export default function Phosphor() {
   const [gamut, setGamut] = useState('full');             // adaptive colour constraint / device gamut
   const [showAllDevices, setShowAllDevices] = useState(false);   // Devices section: reveal beyond the first row set
   const [detail, setDetail] = useState(55);   // unified 0-100, higher = more detail
+  const detailRef = useRef(55); detailRef.current = detail;
+  const sweepRef = useRef(0);
+  const pendingSweepRef = useRef(false);   // holds the target detail to animate to after an upload decodes
+  // On upload, reveal the pixelisation by ramping detail 0 → the user's selected level.
+  const sweepDetail = useCallback((target) => {
+    cancelAnimationFrame(sweepRef.current);
+    if (target <= 0) { setDetail(target); return; }
+    const dur = 850, start = performance.now();
+    setDetail(0);
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - t, 3);   // easeOutCubic
+      setDetail(Math.round(e * target));
+      if (t < 1) sweepRef.current = requestAnimationFrame(step);
+    };
+    sweepRef.current = requestAnimationFrame(step);
+  }, []);
 
   const [asciiRamp, setAsciiRamp] = useState('standard');
   const [asciiFg, setAsciiFg] = useState('#00ff41');
@@ -890,6 +907,7 @@ export default function Phosphor() {
     if (!file) return;
     setZoom(1); setPan({x:0,y:0});   // fit the new image to the viewport
     setFileName(file.name);
+    pendingSweepRef.current = detailRef.current;   // animate detail 0 → selected once it decodes
     const reader = new FileReader();
     reader.onload = ev => setImageSrc(ev.target.result);
     reader.readAsDataURL(file);
@@ -1310,7 +1328,10 @@ export default function Phosphor() {
     if (!imageSrc) return;
     let cancelled = false;
     const img = new Image();
-    img.onload = () => { if (!cancelled) { imgRef.current = img; setImgTick(t => t + 1); } };
+    img.onload = () => { if (!cancelled) {
+      imgRef.current = img; setImgTick(t => t + 1);
+      if (pendingSweepRef.current !== false) { const tgt = pendingSweepRef.current; pendingSweepRef.current = false; sweepDetail(tgt); }
+    } };
     img.src = imageSrc;
     return () => { cancelled = true; };
   }, [imageSrc]);
