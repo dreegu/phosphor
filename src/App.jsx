@@ -888,6 +888,7 @@ export default function Phosphor() {
   const [booting, setBooting] = useState(true);
   const [bootHiding, setBootHiding] = useState(false);
   const bootStart = useRef(Date.now());
+  const bootSweepRef = useRef(false);   // play the detail-reveal on the landing image once the splash lifts
 
   // ── Hold to compare ──
   const [comparing, setComparing] = useState(false);
@@ -999,6 +1000,9 @@ export default function Phosphor() {
     const pickable = LOOK_PRESETS.filter(p => !['type','riso','duotone','mono'].includes(p.category));
     const look = pickable[Math.floor(Math.random()*pickable.length)];
     applyLookPreset(look);
+    // Land chunky and remember where to ramp to; the splash-lift effect plays the reveal.
+    bootSweepRef.current = look.carriesDetail ? look.settings.detail : detailRef.current;
+    setDetail(0);
     if(img.fileName) setFileName(img.fileName);
     setZoom(1); setPan({x:0,y:0});
     setImageSrc(img.image);
@@ -1353,6 +1357,14 @@ export default function Phosphor() {
     const t2 = setTimeout(() => setBooting(false), wait + 550);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [booting, outputUrl]);
+  // First visit lands chunky (detail 0, set in shuffleAll); once the splash lifts, ramp
+  // the pixelisation up to the landing look's real detail — same reveal as an upload.
+  useEffect(() => {
+    if (booting || bootSweepRef.current === false) return;
+    const target = bootSweepRef.current;
+    bootSweepRef.current = false;
+    sweepDetail(target);
+  }, [booting]);
   // Safety net: never trap the user behind the splash if a render never lands.
   useEffect(() => {
     const t = setTimeout(() => { setBootHiding(true); setTimeout(() => setBooting(false), 550); }, 5000);
