@@ -8,12 +8,62 @@
     <meta name="theme-color" content="#0a1226" />
     <meta name="apple-mobile-web-app-title" content="Phosphor" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Phosphor Studio — lo-fi image studio</title>
+
+    <title>Phosphor Studio</title>
+    <meta name="description" content="A lo-fi visual studio. Turn photos into dithered, halftone, and ASCII retro-display art with CRT atmosphere and presets inspired by films, series, and games." />
+    <meta name="author" content="Rodrigo Silva" />
+    <link rel="canonical" href="https://phosphorstudio.vercel.app/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Phosphor Studio" />
+    <meta property="og:title" content="Phosphor Studio" />
+    <meta property="og:description" content="A lo-fi visual studio. Turn photos into dithered, halftone, and ASCII retro-display art with CRT atmosphere and cinematic presets." />
+    <meta property="og:url" content="https://phosphorstudio.vercel.app/" />
+    <meta property="og:image" content="https://phosphorstudio.vercel.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Phosphor Studio — a lo-fi visual studio" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Phosphor Studio" />
+    <meta name="twitter:description" content="A lo-fi visual studio. Turn photos into dithered, halftone, and ASCII retro-display art." />
+    <meta name="twitter:image" content="https://phosphorstudio.vercel.app/og-image.png" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Phosphor Studio",
+      "url": "https://phosphorstudio.vercel.app/",
+      "description": "A lo-fi visual studio. Turn photos into dithered, halftone, and ASCII retro-display art with CRT atmosphere and presets inspired by films, series, and games.",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Web browser",
+      "browserRequirements": "Requires JavaScript.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "image": "https://phosphorstudio.vercel.app/og-image.png",
+      "author": {
+        "@type": "Person",
+        "name": "Rodrigo Silva",
+        "url": "https://rodrigosilva.design"
+      }
+    }
+    </script>
+
     <!-- Umami analytics (cookieless) -->
     <script defer src="https://cloud.umami.is/script.js" data-website-id="db0c8845-3205-49f7-9c1a-202614871290"></script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="max-width:34rem;margin:12vh auto;padding:0 1.5rem;font-family:system-ui,sans-serif;color:#e4e4e7;text-align:center;line-height:1.6">
+        <h1 style="font-size:1.5rem;font-weight:500"><span style="color:#fef3c7">Phosphor</span> <span style="color:#71717a">Studio</span></h1>
+        <p style="color:#a1a1aa;font-size:0.95rem">A lo-fi visual studio — turn photos into dithered, halftone, and ASCII retro-display art with CRT atmosphere and cinematic presets.</p>
+        <p style="color:#71717a;font-size:0.85rem">This app needs JavaScript enabled to run. Built by <a href="https://rodrigosilva.design" style="color:#fcd34d">Rodrigo Silva</a>.</p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

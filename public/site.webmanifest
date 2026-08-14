@@ -1,7 +1,7 @@
 {
   "name": "Phosphor Studio",
   "short_name": "Phosphor",
-  "description": "Lo-fi image studio",
+  "description": "A lo-fi visual studio — turn photos into dithered, halftone, and ASCII retro-display art.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a1226",

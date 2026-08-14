@@ -1,0 +1,23 @@
+# Phosphor Studio
+
+> A lo-fi visual studio that turns photos into dithered, halftone, and ASCII retro-display art. It runs entirely in the browser — images never leave the device — with CRT atmospheric effects and a curated collection of presets inspired by films, series, and video games.
+
+## About
+
+- Phosphor Studio is a free, client-side web app at https://phosphorstudio.vercel.app/
+- Built by Rodrigo Silva (https://rodrigosilva.design)
+- Source code: https://github.com/dreegu/phosphor
+
+## What it does
+
+- Converts uploaded photos into retro-display art: ordered/error-diffusion dithering, halftone patterns, and ASCII art
+- Applies CRT and atmospheric post-processing effects
+- Offers cinematic and poster presets inspired by films, series, and video games
+- Exports to PNG and JPEG (full resolution) and SVG (editable text/shapes)
+- Shareable looks via compressed URL links; all processing happens locally in the browser
+
+## Links
+
+- App: https://phosphorstudio.vercel.app/
+- Source: https://github.com/dreegu/phosphor
+- Author: https://rodrigosilva.design
