@@ -1,1 +1,10 @@
 @import "tailwindcss";
+
+/* Dark from the OS down: colours form controls, scrollbars and the standalone
+   PWA status bar for dark mode (fixes the white status bar on the home-screen app). */
+html { color-scheme: dark; background-color: #09090b; }
+
+/* Lock the app to the visible viewport so the page itself never scrolls — no
+   collapsing browser chrome, no rubber-band. All scrolling happens inside panels. */
+html, body, #root { height: 100%; }
+body { margin: 0; overflow: hidden; overscroll-behavior: none; }

@@ -1682,8 +1682,8 @@ export default function Phosphor() {
   const mobileTabIds = MOBILE_TABS.map(t=>t[0]);
 
   return (
-    <div className="h-screen flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
-      style={{paddingTop:'env(safe-area-inset-top)',paddingLeft:'env(safe-area-inset-left)',paddingRight:'env(safe-area-inset-right)'}}>
+    <div className="h-[100dvh] flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
+      style={{paddingTop:'env(safe-area-inset-top)',paddingLeft:'env(safe-area-inset-left)',paddingRight:'env(safe-area-inset-right)',paddingBottom:'env(safe-area-inset-bottom)'}}>
       <style>{`
         input[type=range]{-webkit-appearance:none;height:2px;background:#3f3f46;width:100%}
         input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;background:#f4e4c1;border-radius:0;cursor:pointer;margin-top:-4px}
@@ -1752,7 +1752,7 @@ export default function Phosphor() {
         <div className="flex flex-1 overflow-hidden flex-col md:flex-row" onDrop={handleDrop} onDragOver={e=>e.preventDefault()}>
 
           {/* IMAGE */}
-          <div className="relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 h-[40vh] md:h-auto md:flex-1">
+          <div className="relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 h-[32dvh] p-2 md:p-0 md:h-auto md:flex-1">
             <div ref={zoomAreaRef} onContextMenu={e=>e.preventDefault()}
               className="flex-1 overflow-hidden relative touch-none select-none" style={{cursor:'grab'}}>
               <div className="w-full h-full flex items-center justify-center" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
