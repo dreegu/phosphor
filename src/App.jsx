@@ -813,6 +813,7 @@ export default function Phosphor() {
   const [fileName, setFileName] = useState('creation-of-adam.jpg');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({x:0,y:0});
+  const [lightbox, setLightbox] = useState(false);   // mobile: tap the image for a full-screen view
   const viewRef = useRef({zoom:1, pan:{x:0,y:0}});
 
   const [mode, setMode] = useState('halftone');
@@ -1138,6 +1139,18 @@ export default function Phosphor() {
 
   const clampZoom = z => Math.max(0.25, Math.min(8, z));
   const resetView = () => { setZoom(1); setPan({x:0,y:0}); };
+  // Keep the photo pinned to the viewport edges: never drag it so far that empty space
+  // shows past a border. On the axis where the (scaled) image is smaller than the pane it
+  // stays centred (bound 0); on the larger axis you can pan within the overflow only.
+  const clampPan = (p, z) => {
+    const el = zoomAreaRef.current, im = previewImgRef.current;
+    if (!el || !im || !im.naturalWidth) return p;
+    const cw = el.clientWidth, ch = el.clientHeight;
+    const fit = Math.min(cw / im.naturalWidth, ch / im.naturalHeight);   // object-contain fit
+    const mx = Math.max(0, (im.naturalWidth * fit * z - cw) / 2);
+    const my = Math.max(0, (im.naturalHeight * fit * z - ch) / 2);
+    return { x: Math.max(-mx, Math.min(mx, p.x)), y: Math.max(-my, Math.min(my, p.y)) };
+  };
 
   // Below md (768px) we swap the two-tab sidebar for a per-section tabbed layout.
   const [isNarrow, setIsNarrow] = useState(() =>
@@ -1171,7 +1184,7 @@ export default function Phosphor() {
     const nz = clampZoom(target);
     const lx = (px - p.x)/z, ly = (py - p.y)/z;
     setZoom(nz);
-    setPan({ x: px - nz*lx, y: py - nz*ly });
+    setPan(clampPan({ x: px - nz*lx, y: py - nz*ly }, nz));
   };
 
   // Pan by dragging; zoom to the cursor via wheel/trackpad-pinch; zoom to the midpoint via touch pinch.
@@ -1203,14 +1216,14 @@ export default function Phosphor() {
         // updater runs lazily at render time, so it must close over the numbers, not `prev`.
         const dx=ev.clientX-prev[0], dy=ev.clientY-prev[1];
         prev=[ev.clientX,ev.clientY];
-        setPan(p=>({x:p.x+dx, y:p.y+dy}));
+        setPan(p=>clampPan({x:p.x+dx, y:p.y+dy}, viewRef.current.zoom));
       };
       const up=()=>{ el.style.cursor='grab'; window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',up); };
       window.addEventListener('pointermove',move);
       window.addEventListener('pointerup',up);
     };
 
-    let last = null, pinch = null;
+    let last = null, pinch = null, tapInfo = null;
     // Touch "hold to compare": a still one-finger press reveals the original; any real
     // movement cancels it and becomes a pan, so the gesture never fights scrolling/panning.
     let pressTimer = null, pressStart = null, compareOn = false;
@@ -1225,11 +1238,11 @@ export default function Phosphor() {
           if (pressTimer) { e.preventDefault(); return; }           // within threshold, still deciding
         } else { clearPress(); }                                    // moved → it's a pan
         e.preventDefault();
-        if(last){ const dx=t.clientX-last[0], dy=t.clientY-last[1]; setPan(p=>({x:p.x+dx, y:p.y+dy})); }
+        if(last){ const dx=t.clientX-last[0], dy=t.clientY-last[1]; if(Math.abs(dx)+Math.abs(dy)>2) tapInfo=null; setPan(p=>clampPan({x:p.x+dx, y:p.y+dy}, viewRef.current.zoom)); }
         last=[t.clientX,t.clientY];
       } else if(e.touches.length===2){
         e.preventDefault();
-        clearPress(); endCompare();
+        tapInfo=null; clearPress(); endCompare();
         const [a,b]=e.touches;
         const dist=Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
         const [mx,my]=rel((a.clientX+b.clientX)/2, (a.clientY+b.clientY)/2);
@@ -1239,6 +1252,7 @@ export default function Phosphor() {
     };
     const onTouchStart = (e) => {
       last = e.touches.length? [e.touches[0].clientX,e.touches[0].clientY] : null;
+      tapInfo = e.touches.length===1 ? {t:Date.now()} : null;
       clearPress(); pressStart = null;
       if (e.touches.length === 1 && canCompareRef.current) {
         pressStart = [e.touches[0].clientX, e.touches[0].clientY];
@@ -1247,7 +1261,14 @@ export default function Phosphor() {
     };
     const onTouchEnd = (e) => {
       if(e.touches.length<2) pinch=null;
-      if(e.touches.length===0){ last=null; clearPress(); endCompare(); pressStart=null; }
+      if(e.touches.length===0){
+        // A quick, still, single-finger tap (not a hold, pan or pinch) toggles the mobile
+        // full-screen lightbox and recentres the photo.
+        if(tapInfo && !compareOn && Date.now()-tapInfo.t < 250 && window.innerWidth < 768){
+          setZoom(1); setPan({x:0,y:0}); setLightbox(v=>!v);
+        }
+        last=null; clearPress(); endCompare(); pressStart=null; tapInfo=null;
+      }
     };
 
     el.addEventListener('wheel', onWheel, { passive:false });
@@ -1683,6 +1704,7 @@ export default function Phosphor() {
     ['share','Save',Save],
   ];
   const mobileTabIds = MOBILE_TABS.map(t=>t[0]);
+  const lb = lightbox && isNarrow;   // full-screen photo view (mobile only)
 
   return (
     <div className="h-[100dvh] flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
@@ -1716,7 +1738,7 @@ export default function Phosphor() {
       `}</style>
 
       {/* HEADER */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-zinc-800 shrink-0 gap-2">
+      <div className={`${lb?'hidden':'flex'} items-center justify-between px-3 sm:px-4 py-2.5 border-b border-zinc-800 shrink-0 gap-2`}>
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
             <img src="/favicon.png" alt="Phosphor Studio" className="w-6 h-6 shrink-0 rounded-[3px]"/>
@@ -1755,7 +1777,7 @@ export default function Phosphor() {
         <div className="flex flex-1 overflow-hidden flex-col md:flex-row" onDrop={handleDrop} onDragOver={e=>e.preventDefault()}>
 
           {/* IMAGE */}
-          <div className="relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 h-[32dvh] p-2 md:p-0 md:h-auto md:flex-1">
+          <div className={`relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 md:h-auto md:flex-1 ${lb?'flex-1':'h-[32dvh]'}`}>
             <div ref={zoomAreaRef} onContextMenu={e=>e.preventDefault()}
               className="flex-1 overflow-hidden relative touch-none select-none" style={{cursor:'grab'}}>
               <div className="w-full h-full flex items-center justify-center" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
@@ -1772,6 +1794,10 @@ export default function Phosphor() {
                   className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] tracking-wide text-amber-100 bg-black/70 border border-amber-700/60 rounded backdrop-blur">
                   <RotateCcw size={12}/> {Math.round(zoom*100)}%
                 </button>}
+              {lb && zoom===1 &&
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-4 px-3 py-1.5 text-[11px] tracking-wide text-zinc-300 bg-black/60 rounded-full backdrop-blur pointer-events-none anim-fadein">
+                  Tap to exit
+                </div>}
             </div>
 
             <div className="hidden md:flex relative items-center px-3 py-2 border-t border-zinc-800 shrink-0">
@@ -1802,7 +1828,7 @@ export default function Phosphor() {
           </div>
 
           {/* CONTROLS */}
-          <div className="w-full md:w-72 xl:w-80 flex-1 md:flex-none min-h-0 flex flex-col bg-zinc-950 border-t md:border-t-0 md:border-l border-zinc-800">
+          <div className={`${lb?'hidden':'flex'} w-full md:w-72 xl:w-80 flex-1 md:flex-none min-h-0 flex-col bg-zinc-950 border-t md:border-t-0 md:border-l border-zinc-800`}>
 
             {/* TAB BAR — two tabs on desktop, per-section icon tabs on mobile */}
             {isNarrow ? (
