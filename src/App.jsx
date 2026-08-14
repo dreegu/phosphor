@@ -148,9 +148,18 @@ function sizeToDetail(mode, size){
   return Math.round(Math.max(0, Math.min(100, 100*Math.log(s/max)/Math.log(min/max))));
 }
 
+// Each device's native horizontal resolution → a Detail level, so selecting a device
+// pixelates the photo at that system's true pixel density (relative to the 900px preview
+// reference the whole Detail scale is calibrated to). GB 160px works out to ~47, etc.
+const DEVICE_NATIVE_W = {
+  gameboy:160, gbcolor:160, gba:240, nes:256, playstation:320,
+  c64:320, amiga:320, atarist:320, genesis:320, virtualboy:384, mac:512,
+};
+const deviceDetail = key => sizeToDetail('dither', 900 / DEVICE_NATIVE_W[key]);
+
 // Look categories, in display order.
 const CATEGORIES = [
-  ['hardware','Hardware'], ['soft','Soft'], ['cinematic','Cinematic'], ['poster','Poster'],
+  ['hardware','Devices'], ['soft','Soft'], ['cinematic','Cinematic'], ['poster','Poster'],
   ['vivid','Vivid'], ['duotone','Duotone'], ['mono','Monochrome'], ['riso','Riso'], ['type','Type'],
 ];
 
@@ -158,14 +167,18 @@ const CATEGORIES = [
 // user's, global. The exceptions carry `detail` and set carriesDetail:true (Hardware
 // devices at native resolution, and STIPPLE); those stash and restore the user's detail.
 const LOOK_PRESETS = [
-  // ── Hardware (adaptive + device gamut, native resolution) ──
-  { name:'GAME BOY', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gameboy', detail:47 } },
-  { name:'GAME BOY COLOR', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gbcolor', detail:47 } },
-  { name:'PLAYSTATION', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'playstation', detail:68 } },
-  { name:'COMMODORE 64', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'c64', detail:68 } },
-  { name:'AMIGA', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'amiga', detail:68 } },
-  { name:'ATARI ST', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'atarist', detail:68 } },
-  { name:'MACINTOSH', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], detail:83 } },
+  // ── Devices (adaptive + device gamut; Detail derived from each system's native resolution) ──
+  { name:'GAME BOY', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gameboy', detail:deviceDetail('gameboy') } },
+  { name:'GAME BOY COLOR', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gbcolor', detail:deviceDetail('gbcolor') } },
+  { name:'GAME BOY ADVANCE', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'gba', detail:deviceDetail('gba') } },
+  { name:'NES', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'nes', detail:deviceDetail('nes') } },
+  { name:'PLAYSTATION', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'playstation', detail:deviceDetail('playstation') } },
+  { name:'COMMODORE 64', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'c64', detail:deviceDetail('c64') } },
+  { name:'AMIGA', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'amiga', detail:deviceDetail('amiga') } },
+  { name:'ATARI ST', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'atarist', detail:deviceDetail('atarist') } },
+  { name:'GENESIS', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'genesis', detail:deviceDetail('genesis') } },
+  { name:'VIRTUAL BOY', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'virtualboy', detail:deviceDetail('virtualboy') } },
+  { name:'MACINTOSH', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], detail:deviceDetail('mac') } },
   // ── Soft ──
   { name:'HER', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#2d0f0f',anchor:0},{color:'#7a3030',anchor:0.2},{color:'#c47850',anchor:0.5},{color:'#e8b090',anchor:0.78},{color:'#faeae0',anchor:1}], contrast:15, midtones:1.3, highlights:0.85, shadows:0.85, phosphorGlow:40 } },
   { name:'CELESTE', category:'soft', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#1a0a20',anchor:0},{color:'#3a2050',anchor:0.2},{color:'#c07090',anchor:0.55},{color:'#e8b8a0',anchor:0.82},{color:'#f8f0e0',anchor:1}], contrast:20, midtones:1.25, highlights:0.85, shadows:0.85, phosphorGlow:20 } },
@@ -354,10 +367,13 @@ function vividPalette(pal,satMul=1.75,contrast=1.14){
 const DEVICE_GAMUTS = {
   gameboy:     { label:'Game Boy',       palette:['#0f380f','#306230','#8bac0f','#9bbc0f'] },
   gbcolor:     { label:'Game Boy Color', bits:5, max:16 },
-  playstation: { label:'PlayStation',    bits:5, max:48 },
+  gba:         { label:'Game Boy Advance', bits:5, max:32, desat:0.45 },   // washed-out AGB LCD
+  nes:         { label:'NES',            palette:['#000000','#fcfcfc','#f8f8f8','#bcbcbc','#7c7c7c','#a4e4fc','#3cbcfc','#0078f8','#0000fc','#b8b8f8','#6888fc','#0058f8','#0000bc','#d8b8f8','#9878f8','#6844fc','#4428bc','#f8b8f8','#f878f8','#d800cc','#940084','#f8a4c0','#f85898','#e40058','#a80020','#f0d0b0','#f87858','#f83800','#a81000','#fce0a8','#fca044','#e45c10','#881400','#f8d878','#f8b800','#ac7c00','#503000','#d8f878','#b8f818','#00b800','#007800','#b8f8b8','#58d854','#00a800','#006800','#b8f8d8','#58f898','#00a844','#005800','#00fcfc','#00e8d8','#008888','#f8f8f8','#787878'] },
   c64:         { label:'Commodore 64',   palette:['#000000','#ffffff','#880000','#aaffee','#cc44cc','#00cc55','#0000aa','#eeee77','#dd8855','#664400','#ff7777','#333333','#777777','#aaff66','#0088ff','#bbbbbb'] },
   amiga:       { label:'Amiga',          bits:4, max:32 },
   atarist:     { label:'Atari ST',       bits:3, max:16 },
+  genesis:     { label:'Genesis',        bits:3, max:48 },   // 9-bit RGB (3 bits/channel)
+  virtualboy:  { label:'Virtual Boy',    palette:['#000000','#550000','#aa0000','#ff0000'] },
 };
 
 // Dither the image toward a palette derived FROM the image (hue preserved), optionally
@@ -378,7 +394,9 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut){
     pal = gm.palette.map(hexToRgb);                                   // exact hardware colours
   } else if(gm && gm.bits){
     const levels=(1<<gm.bits)-1, snap=v=>Math.round(Math.round(v/255*levels)/levels*255);
-    pal = medianCutPalette(samples, gm.max).map(([r,g,b])=>[snap(r),snap(g),snap(b)]);  // snap to console grid
+    let base = medianCutPalette(samples, gm.max);
+    if(gm.desat){ const k=gm.desat; base = base.map(([r,g,b])=>{ const l=0.299*r+0.587*g+0.114*b; return [r+(l-r)*k, g+(l-g)*k, b+(l-b)*k]; }); }
+    pal = base.map(([r,g,b])=>[snap(r),snap(g),snap(b)]);  // snap to console grid
   } else {
     pal = vividPalette(medianCutPalette(samples, Math.max(2,Math.min(16,n||16))));
   }
@@ -807,6 +825,7 @@ export default function Phosphor() {
   const [dcolor, setDcolor] = useState('palette');        // dither color mode: 'palette' | 'adaptive'
   const [adaptiveCount, setAdaptiveCount] = useState(16); // adaptive palette size (default to max)
   const [gamut, setGamut] = useState('full');             // adaptive colour constraint / device gamut
+  const [showAllDevices, setShowAllDevices] = useState(false);   // Devices section: reveal beyond the first row set
   const [detail, setDetail] = useState(55);   // unified 0-100, higher = more detail
 
   const [asciiRamp, setAsciiRamp] = useState('standard');
@@ -1427,10 +1446,17 @@ export default function Phosphor() {
       {CATEGORIES.map(([key,label])=>{
         const looks = LOOK_PRESETS.filter(p=>p.category===key);
         if(!looks.length) return null;
+        const isDevices = key==='hardware';
+        const shown = isDevices && !showAllDevices ? looks.slice(0,6) : looks;
+        const hidden = isDevices ? looks.length-6 : 0;
         return (
         <Panel key={key} label={label}>
+          {isDevices &&
+            <p className="text-[11px] leading-relaxed text-zinc-500 -mt-1">
+              Remaps photo's colors to device's real gamut and snaps Detail to its native pixel density.
+            </p>}
           <div className="grid grid-cols-2 gap-1.5">
-            {looks.map(p=>{
+            {shown.map(p=>{
               const on=activeLook===p.name;
               return (
               <button key={p.name} onClick={()=>applyLookPreset(p)} title={p.name}
@@ -1444,6 +1470,12 @@ export default function Phosphor() {
               </button>
             );})}
           </div>
+          {isDevices && hidden>0 &&
+            <button onClick={()=>setShowAllDevices(v=>!v)}
+              className="tap-target w-full py-1 border border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1.5 text-xs transition-colors">
+              {showAllDevices ? 'Show less' : `Show ${hidden} more`}
+              <ChevronDown size={12} className={`transition-transform ${showAllDevices?'rotate-180':''}`}/>
+            </button>}
         </Panel>
         );
       })}
