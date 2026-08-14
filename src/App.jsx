@@ -90,11 +90,8 @@ const PALETTE_PRESETS = {
   duotone_violet: { name:'VIOLET', colors:['#1a0838','#e8e0f4'], anchors:[0,1] },
 };
 
-// even-anchor palette helper for the curated looks below
-const ap = cols => cols.map((color,i,a)=>({ color, anchor: a.length>1 ? i/(a.length-1) : 0.5 }));
-
 // Baseline every look resets to, so a preset only declares what it changes.
-const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, definition:2, asciiInvert:false, asciiCutout:0, asciiBold:true, dcolor:'palette', adaptiveCount:16, gamut:'full' };
+const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, asciiInvert:false, asciiCutout:0, asciiBold:true, dcolor:'palette', adaptiveCount:16, gamut:'full' };
 
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
@@ -173,34 +170,19 @@ const LOOK_PRESETS = [
   { name:'ASCII CLASSIC', category:'type', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#1c1814', asciiBg:'#f8f6f0', asciiInvert:true, asciiCutout:32, contrast:30 } },
 ];
 
-const SOURCE_DEVICES = {
-  gameboy:     { name:'GAME BOY',       year:'1989', mode:'dither', algo:'bayer',    width:160, height:144, palette:[{color:'#0f380f',anchor:0},{color:'#306230',anchor:.333},{color:'#8bac0f',anchor:.667},{color:'#9bbc0f',anchor:1}],  note:'DMG-01 · 4-shade green · 160×144 · 59.7fps' },
-  macintosh:   { name:'MACINTOSH',      year:'1984', mode:'dither', algo:'atkinson', width:512, height:342, palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}],                                                               note:'Mac 128K · 1-bit · Atkinson dither · 512×342' },
-  gbcolor:     { name:'GAME BOY COLOR', year:'1998', mode:'dither', algo:'bayer',    width:160, height:144, palette:[{color:'#081820',anchor:0},{color:'#346856',anchor:.333},{color:'#88c070',anchor:.667},{color:'#e0f8d0',anchor:1}],  note:'CGB-001 · 32,768 colors · 160×144' },
-  playstation: { name:'PLAYSTATION',    year:'1994', mode:'dither', algo:'bayer',    width:320, height:240, palette:[{color:'#0a0a1a',anchor:0},{color:'#3a3a6a',anchor:.33},{color:'#7a7aaa',anchor:.66},{color:'#e8e8f8',anchor:1}],    note:'PS1 · 15-bit color · 320×240 · ordered dither' },
-  c64:         { name:'COMMODORE 64',   year:'1982', mode:'dither', algo:'bayer',    width:320, height:200, palette:[{color:'#000000',anchor:0},{color:'#626262',anchor:.33},{color:'#898989',anchor:.66},{color:'#ffffff',anchor:1}],    note:'C64 · 16 colors · 320×200' },
-  bbs:         { name:'BBS TERMINAL',   year:'1985', mode:'ascii',  asciiRamp:'standard', asciiFg:'#00ff41', asciiBg:'#000000', asciiSize:8,                                                                                              note:'VT100 · 80×25 cols · 300–9600 baud' },
-  newsprint:   { name:'NEWSPRINT',      year:'1970', mode:'halftone', htShape:'circle', htSize:4, htAngle:45, htInk:'#1a1008', htPaper:'#f5f0e0',                                                                                        note:'Offset lithography · halftone · ~85 lpi' },
-  zxspectrum:  { name:'ZX SPECTRUM',    year:'1982', mode:'dither', algo:'bayer',    width:256, height:192, palette:[{color:'#000000',anchor:0},{color:'#0000CD',anchor:.14},{color:'#CD0000',anchor:.28},{color:'#CD00CD',anchor:.42},{color:'#00CD00',anchor:.57},{color:'#00CDCD',anchor:.71},{color:'#CDCD00',anchor:.85},{color:'#CDCDCD',anchor:1}], note:'ZX Spectrum · 15 colors · attribute clash · 256×192' },
-  amiga:       { name:'AMIGA OCS',      year:'1985', mode:'dither', algo:'bayer',    width:320, height:256, palette:[{color:'#000000',anchor:0},{color:'#222266',anchor:.2},{color:'#6666AA',anchor:.45},{color:'#AAAADD',anchor:.7},{color:'#EEEEFF',anchor:1}], note:'Amiga OCS · 32 colors · DeluxePaint era · 320×256' },
-  cga:         { name:'CGA',            year:'1981', mode:'dither', algo:'bayer',    width:320, height:200, palette:[{color:'#000000',anchor:0},{color:'#00AAAA',anchor:.33},{color:'#AA00AA',anchor:.66},{color:'#AAAAAA',anchor:1}], note:'IBM CGA · 4 colors · cyan/magenta mode · 320×200' },
-  atarist:     { name:'ATARI ST',       year:'1985', mode:'dither', algo:'bayer',    width:320, height:200, palette:[{color:'#000000',anchor:0},{color:'#444444',anchor:.25},{color:'#888888',anchor:.5},{color:'#BBBBBB',anchor:.75},{color:'#FFFFFF',anchor:1}], note:'Atari ST · 16 of 512 colors · GEM desktop era · 320×200' },
-  msx:         { name:'MSX',            year:'1983', mode:'dither', algo:'bayer',    width:256, height:192, palette:[{color:'#000000',anchor:0},{color:'#3EB849',anchor:.2},{color:'#CC3311',anchor:.45},{color:'#CACC71',anchor:.7},{color:'#FFFFFF',anchor:1}], note:'MSX · 16 colors · TMS9918 chip · 256×192' },
-  teletext:    { name:'TELETEXT',       year:'1976', mode:'ascii',  asciiRamp:'blocks', asciiFg:'#FFFFFF', asciiBg:'#000000', asciiSize:12,                                                                                                 note:'BBC Teletext · 8 colors · block graphics · 40×25 cols' },
-};
-
-// Default look applied to the default image on first load (and used by shuffle).
-const DEFAULT_SETTINGS = {
-  mode:'halftone', algo:'bayer', detail:61, definition:1,
-  palette:ap(['#1a1410','#5c4a32','#a8865a','#f4e4c1']),
-  htShape:'circle', htAngle:0, htInk:'#1388f6', htPaper:'#f2ede4',
-  contrast:65, midtones:0.55, highlights:0.65,
-  phosphorGlow:0, luminanceLift:0, scanlines:0, noise:16, chromaShift:0.5,
-};
-
-// Pool of sample images shown on entry. Add more { image, fileName } entries here.
+// Pool of sample images shown on entry (cycled by nextSampleIndex). Add more here.
 const DEFAULT_POOL = [
-  { image:DEFAULT_IMAGE, fileName:'creation-of-adam.jpg', settings:DEFAULT_SETTINGS },
+  { image:DEFAULT_IMAGE, fileName:'creation-of-adam.jpg' },
+  { image:'/samples/landscape-1.jpg',  fileName:'landscape-1.jpg' },
+  { image:'/samples/landscape-2.jpg',  fileName:'landscape-2.jpg' },
+  { image:'/samples/landscape-3.jpg',  fileName:'landscape-3.jpg' },
+  { image:'/samples/landscape-4.jpg',  fileName:'landscape-4.jpg' },
+  { image:'/samples/landscape-5.jpg',  fileName:'landscape-5.jpg' },
+  { image:'/samples/landscape-6.jpg',  fileName:'landscape-6.jpg' },
+  { image:'/samples/landscape-7.jpg',  fileName:'landscape-7.jpg' },
+  { image:'/samples/landscape-8.jpg',  fileName:'landscape-8.jpg' },
+  { image:'/samples/landscape-9.jpg',  fileName:'landscape-9.jpg' },
+  { image:'/samples/landscape-10.jpg', fileName:'landscape-10.jpg' },
 ];
 
 // Shuffle-bag over the sample pool, persisted in localStorage (shared across tabs of the
@@ -783,6 +765,7 @@ function fitDims(w, h, max) {
 const VIDEO_MAX_BYTES = 150 * 1024 * 1024; // soft cap; warn beyond this
 const GIF_MAX_DIM = 480;   // keep encoded GIFs light regardless of working resolution
 const VIDEO_FRAME_CAP = 60; // hard ceiling on frames processed from a clip
+const EXPORT_MAX = 4096;    // raster export ceiling (long side) — safe across browsers
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 export default function Phosphor() {
@@ -796,7 +779,6 @@ export default function Phosphor() {
   const [activeTab, setActiveTab] = useState('presets');
   const [activeLook, setActiveLook] = useState(null);
   const [lookThumbs, setLookThumbs] = useState({});
-  const [sourceDevice, setSourceDevice] = useState(null);
 
   const [palette, setPalette] = useState(() =>
     PALETTE_PRESETS.amber.colors.map((c,i,a) => mkEntry(c, a.length>1?i/(a.length-1):0.5))
@@ -807,8 +789,6 @@ export default function Phosphor() {
   const [adaptiveCount, setAdaptiveCount] = useState(16); // adaptive palette size (default to max)
   const [gamut, setGamut] = useState('full');             // adaptive colour constraint / device gamut
   const [detail, setDetail] = useState(55);   // unified 0-100, higher = more detail
-  const [resLock, setResLock] = useState(false);
-  const [definition, setDefinition] = useState(1);
 
   const [asciiRamp, setAsciiRamp] = useState('standard');
   const [asciiFg, setAsciiFg] = useState('#00ff41');
@@ -943,7 +923,6 @@ export default function Phosphor() {
 
   const handleModeChange = (m) => {
     setMode(m);
-    setSourceDevice(null);
     setActiveLook(null);
     if (ctrlRef.current) ctrlRef.current.scrollTop = 0;
   };
@@ -955,8 +934,6 @@ export default function Phosphor() {
   const setDetailOwned = (v) => { detailStash.current = null; setDetail(v); };
 
   const applyLookPreset = (p) => {
-    setSourceDevice(null);
-    setResLock(false);
     setActiveLook(p.name);
     if (p.carriesDetail) {
       if (detailStash.current === null) detailStash.current = detail;
@@ -988,7 +965,6 @@ export default function Phosphor() {
     if(s.dcolor!==undefined) setDcolor(s.dcolor);
     if(s.adaptiveCount!==undefined) setAdaptiveCount(s.adaptiveCount);
     if(s.gamut!==undefined) setGamut(s.gamut);
-    if(s.definition!==undefined) setDefinition(s.definition);
     // Unified detail, with backward-compat for older presets/links that stored raw sizes.
     if(s.detail!==undefined) setDetail(s.detail);
     else if(s.pixelSize!==undefined) setDetail(sizeToDetail('dither',s.pixelSize));
@@ -1021,7 +997,6 @@ export default function Phosphor() {
   const shuffleAll = () => {
     const img = DEFAULT_POOL[nextSampleIndex(DEFAULT_POOL.length)];
     const look = LOOK_PRESETS[Math.floor(Math.random()*LOOK_PRESETS.length)];
-    setSourceDevice(null);
     applyLookPreset(look);
     if(img.fileName) setFileName(img.fileName);
     setZoom(1); setPan({x:0,y:0});
@@ -1029,12 +1004,12 @@ export default function Phosphor() {
   };
 
   const getSettings = useCallback(() => ({
-    mode, algo, dcolor, adaptiveCount, gamut, detail, definition,
+    mode, algo, dcolor, adaptiveCount, gamut, detail,
     palette: palette.map(({color,anchor})=>({color,anchor})),
     asciiRamp, asciiFg, asciiBg, asciiInvert, asciiCutout, asciiBold,
     htShape, htAngle, htInk, htPaper,
     contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
-  }), [mode,algo,dcolor,adaptiveCount,gamut,detail,definition,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
+  }), [mode,algo,dcolor,adaptiveCount,gamut,detail,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
 
   // ── Undo / redo ───────────────────────────────────────────────────────────
   // History holds serialized settings only (never the image), so replacing the image
@@ -1270,15 +1245,17 @@ export default function Phosphor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const process = useCallback(() => {
+  // Render the full pipeline at a given max dimension and return a fresh canvas (no state
+  // side-effects). The preview calls this at 900px (fast, interactive); export calls it at
+  // the upload's native resolution. Detail is calibrated at 900px, so the pattern size is
+  // scaled by (renderLongSide / 900) to keep the same visual density at any resolution.
+  const composeOutput = useCallback((maxDim) => {
     const img = imgRef.current;
-    if (!img||!img.complete||!img.naturalWidth) return;
-    const maxDim=900;
+    if (!img||!img.complete||!img.naturalWidth) return null;
     let w=img.naturalWidth, h=img.naturalHeight;
     const sc=Math.min(1,maxDim/Math.max(w,h));
-    // base dims (<=900), then supersample by the definition multiplier for crisp output
-    const D=definition;
-    w=Math.max(1,Math.round(w*sc*D)); h=Math.max(1,Math.round(h*sc*D));
+    w=Math.max(1,Math.round(w*sc)); h=Math.max(1,Math.round(h*sc));
+    const scale=Math.max(w,h)/900;
 
     const cf=(100+contrast)/100;
     const getY=(r,g,b)=>{
@@ -1289,16 +1266,12 @@ export default function Phosphor() {
       return Math.max(0,Math.min(1,y));
     };
 
-    const dev=sourceDevice?SOURCE_DEVICES[sourceDevice]:null;
-    // Detail -> mode size; native res-lock overrides dither to the device grid. D (definition) supersamples.
-    const px=resLock&&dev?.width?Math.max(1,Math.round(w/dev.width)):Math.max(1,detailToSize('dither',detail)*D);
-
     let canvas;
     const tp=transparentBg;
-    if(mode==='dither') canvas=renderDither({img,w,h,px,palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount,gamut});
-    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:detailToSize('ascii',detail)*D,getY,transparent:tp,invert:asciiInvert,cutout:asciiCutout,bold:asciiBold});
-    else if(mode==='halftone') canvas=renderHalftone({img,w,h,shape:htShape,dotSize:detailToSize('halftone',detail)*D,angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
-    if (!canvas) return;
+    if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,detailToSize('dither',detail)*scale),palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount,gamut});
+    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:Math.max(3,detailToSize('ascii',detail)*scale),getY,transparent:tp,invert:asciiInvert,cutout:asciiCutout,bold:asciiBold});
+    else canvas=renderHalftone({img,w,h,shape:htShape,dotSize:Math.max(0.8,detailToSize('halftone',detail)*scale),angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
+    if (!canvas) return null;
 
     const darkColor=mode==='dither'
       ?'#'+[...palette].sort((a,b)=>a.anchor-b.anchor)[0]?.color?.slice(1)
@@ -1322,10 +1295,15 @@ export default function Phosphor() {
       for(let i=0,p=0;i<d.length;i+=4,p++) d[i+3]=alphaMask[p];
       ctx.putImageData(id,0,0);
     }
+    return canvas;
+  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,transparentBg]);
 
+  const process = useCallback(() => {
+    const canvas = composeOutput(900);
+    if (!canvas) return;
     outputCanvasRef.current = canvas;
     setOutputUrl(canvas.toDataURL('image/png'));
-  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,definition,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,sourceDevice,resLock,transparentBg]);
+  }, [composeOutput]);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -1446,7 +1424,9 @@ export default function Phosphor() {
       return;
     }
 
-    const canvas = outputCanvasRef.current;
+    // Raster export re-renders at the upload's native resolution (capped), independent of
+    // the 900px preview — so a big photo exports big without slowing down live editing.
+    const canvas = composeOutput(EXPORT_MAX);
     if (!canvas) return;
     const ext = format==='jpeg' ? 'jpg' : 'png';
     const mime = format==='jpeg' ? 'image/jpeg' : 'image/png';
@@ -1558,9 +1538,9 @@ export default function Phosphor() {
             <Upload size={12}/> <span className="hidden sm:inline">UPLOAD</span>
             <input type="file" accept="image/*,video/*" className="hidden" onChange={handleFile}/>
           </label>
-          <ExportMenu format={format} setFormat={setFormat} definition={definition} setDefinition={setDefinition}
+          <ExportMenu format={format} setFormat={setFormat}
             transparentBg={transparentBg} setTransparentBg={setTransparentBg} onDownload={handleDownload}
-            gifAvailable={isVideo || mode==='dither' || mode==='halftone'} isVideo={isVideo}
+            gifAvailable={isVideo} isVideo={isVideo}
             exporting={exporting} progress={progress}/>
         </div>
       </div>
@@ -1843,15 +1823,19 @@ function AboutModal({onClose}) {
       <div onClick={e=>e.stopPropagation()}
         className="anim-fadein w-full sm:w-[440px] max-h-[85vh] overflow-y-auto bg-zinc-950 border border-zinc-800 sm:rounded p-6 flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="text-base text-amber-100 tracking-widest">PHOSPHOR<span className="text-amber-100/50 font-light"> STUDIO</span></h2>
+          <div className="flex items-center gap-2">
+            <img src="/favicon.png" alt="" className="w-7 h-7 shrink-0 rounded-[3px]"/>
+            <h2 className="text-base tracking-tight"><span className="text-amber-100">Phosphor</span> <span className="text-zinc-500">Studio</span></h2>
+          </div>
           <button onClick={onClose} aria-label="close" className="tap-target flex items-center justify-center w-7 h-7 shrink-0 text-zinc-500 hover:text-amber-300 border border-zinc-700 hover:border-amber-600 transition-colors">
             <X size={14}/>
           </button>
         </div>
+        <p className="text-xl text-amber-100 leading-snug">A lo-fi visual studio.</p>
         <p className="text-xs text-zinc-400 leading-relaxed">
-          A lo-fi image studio — turn photos and video into retro-display art with dithering,
-          halftone screens, and ASCII, tuned by film- and game-referenced presets, CRT
-          atmosphere, and one-click export to PNG, SVG, and animated GIF.
+          Convert photos and video into dithered, halftone, and ASCII retro-display art.
+          Features CRT atmospheric effects and a curated collection of presets inspired by
+          my favorite films, series, and video games.
         </p>
         <div className="flex flex-col gap-2 pt-1">
           <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer"
@@ -1986,7 +1970,7 @@ function Segmented({options,value,onChange}) {
 }
 
 // Export button with an options popover: format, resolution, transparency, then Download.
-function ExportMenu({format,setFormat,definition,setDefinition,transparentBg,setTransparentBg,onDownload,gifAvailable,isVideo,exporting,progress}) {
+function ExportMenu({format,setFormat,transparentBg,setTransparentBg,onDownload,gifAvailable,isVideo,exporting,progress}) {
   const [open,setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -2010,10 +1994,8 @@ function ExportMenu({format,setFormat,definition,setDefinition,transparentBg,set
           <Field label="Format">
             <Segmented options={formats} value={format} onChange={setFormat}/>
           </Field>
-          {format!=='svg' && format!=='gif' &&
-            <Field label="Resolution">
-              <Segmented options={[[1,'1×'],[2,'2×'],[4,'4×']]} value={definition} onChange={setDefinition}/>
-            </Field>}
+          {(format==='png'||format==='jpeg') &&
+            <div className="text-[10px] text-zinc-600 leading-relaxed">Exports at your image's full resolution.</div>}
           {(format==='png'||format==='svg') &&
             <label className="flex items-center justify-between text-xs text-zinc-400 cursor-pointer">
               <span>Transparent background</span>
