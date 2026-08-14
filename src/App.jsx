@@ -26,24 +26,11 @@ const DIAMOND_8X8 = [
 ];
 // Real cross-hatch: rank cells by proximity to EITHER diagonal, so as tone darkens the
 // pixels fill in along both diagonals — forming X / stitch strokes in the shadows.
-const CROSSHATCH_8X8 = (() => {
-  const N = 8, cells = [];
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-    const p1 = ((i - j) % N + N) % N, t1 = Math.min(p1, N - p1);
-    const p2 = (i + j) % N, t2 = Math.min(p2, N - p2);
-    cells.push({ i, j, k: Math.min(t1, t2) * 64 + ((i * 5 + j * 3) % N) * 8 + ((i + j) % 2) });
-  }
-  cells.sort((a, b) => a.k - b.k);
-  const m = Array.from({ length: N }, () => Array(N).fill(0));
-  cells.forEach((c, r) => { m[c.i][c.j] = r; });
-  return m;
-})();
 const ORDERED_PATTERNS = {
   bayer2:  { matrix: genBayer(2), size: 2, max: 4 },
   bayer:   { matrix: genBayer(4), size: 4, max: 16 },
   bayer8:  { matrix: genBayer(8), size: 8, max: 64 },
   diamond: { matrix: DIAMOND_8X8,    size: 8, max: 8 },
-  cross:   { matrix: CROSSHATCH_8X8, size: 8, max: 64 },
 };
 
 // Riemersma dithering diffuses error along a Hilbert space-filling curve, so error travels
@@ -1121,7 +1108,9 @@ export default function Phosphor() {
   const checkSmooth = useCallback(() => {
     const im = previewImgRef.current;
     if (!im || !im.naturalWidth) return;
-    setSmoothScale(im.clientWidth * zoom < im.naturalWidth * 0.98);   // displayed smaller than native → downscaling
+    // object-contain: the element box fills the pane; the image is fitted inside it.
+    const fit = Math.min(im.clientWidth / im.naturalWidth, im.clientHeight / im.naturalHeight);
+    setSmoothScale(fit * zoom < 0.98);   // displayed smaller than native → downscaling
   }, [zoom]);
   useEffect(() => {
     checkSmooth();
@@ -1469,7 +1458,7 @@ export default function Phosphor() {
       {mode==='dither' &&
         <Field label="Pattern">
           <Dropdown value={algo} onChange={setAlgo}
-            options={[['bayer2','Grid 2×2'],['bayer','Grid 4×4'],['bayer8','Grid 8×8'],['diamond','Diamond'],['cross','Cross'],['bluenoise','Blue noise'],['diffusion','Floyd–Steinberg'],['jjn','Jarvis'],['stucki','Stucki'],['sierra','Sierra'],['atkinson','Atkinson'],['riemersma','Riemersma']]}/>
+            options={[['bayer2','Grid 2×2'],['bayer','Grid 4×4'],['bayer8','Grid 8×8'],['diamond','Diamond'],['bluenoise','Blue noise'],['diffusion','Floyd–Steinberg'],['jjn','Jarvis'],['stucki','Stucki'],['sierra','Sierra'],['atkinson','Atkinson'],['riemersma','Riemersma']]}/>
         </Field>}
       {mode==='ascii' &&
         <Field label="Character set">
@@ -1702,7 +1691,7 @@ export default function Phosphor() {
               <div className="w-full h-full flex items-center justify-center" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
                 <img ref={previewImgRef} onLoad={checkSmooth} src={showingOriginal ? imageSrc : (outputUrl||imageSrc)} alt="preview" draggable={false}
                   onContextMenu={e=>e.preventDefault()}
-                  className={`max-w-full max-h-full block ${transparentBg&&!showingOriginal?'checker':''}`}
+                  className={`w-full h-full object-contain block ${transparentBg&&!showingOriginal?'checker':''}`}
                   style={{imageRendering:(mode==='ascii'||showingOriginal||smoothScale)?'auto':'pixelated',WebkitTouchCallout:'none',WebkitUserSelect:'none',userSelect:'none'}}/>
               </div>
               {showingOriginal &&
