@@ -168,7 +168,6 @@ const LOOK_PRESETS = [
   { name:'PAPRIKA', category:'riso', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, phosphorGlow:30 } },
   { name:'ARRIVAL', category:'riso', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0f1a', htPaper:'#8899aa', htAngle:60, contrast:20, phosphorGlow:20 } },
   { name:'JOURNEY', category:'riso', settings:{ mode:'halftone', htShape:'line', htInk:'#3a1a00', htPaper:'#f0c860', htAngle:0, contrast:20, midtones:1.1, highlights:0.9, phosphorGlow:25 } },
-  { name:'DUSK', category:'riso', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#101826',anchor:0},{color:'#3a4a3a',anchor:0.3},{color:'#e8785a',anchor:0.64},{color:'#f0d8b0',anchor:0.92}], contrast:35, midtones:0.95, highlights:1.1, shadows:1.2 } },
   // ── Type ──
   { name:'THE MATRIX', category:'type', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#00ff41', asciiBg:'#000000', asciiCutout:22, phosphorGlow:30, scanlines:25 } },
   { name:'AMBER TERMINAL', category:'type', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#ffb000', asciiBg:'#140e06', asciiCutout:20, phosphorGlow:30 } },
@@ -1201,11 +1200,19 @@ export default function Phosphor() {
     setOutputUrl(canvas.toDataURL('image/png'));
   }, [composeOutput]);
 
+  // Bump a tick when the source image finishes loading. Don't call process() from onload —
+  // that closure can be stale (settings applied after this effect last ran, e.g. a preset
+  // picked on load with the same sample URL), which rendered the old look until the next
+  // settings change. Instead let the render effect below (which always holds the current
+  // process) fire off the tick.
+  const [imgTick, setImgTick] = useState(0);
   useEffect(() => {
     if (!imageSrc) return;
+    let cancelled = false;
     const img = new Image();
-    img.onload = () => { imgRef.current = img; process(); };
+    img.onload = () => { if (!cancelled) { imgRef.current = img; setImgTick(t => t + 1); } };
     img.src = imageSrc;
+    return () => { cancelled = true; };
   }, [imageSrc]);
 
   // Coalesce rapid setting changes (e.g. dragging a slider) into one render per frame
@@ -1214,7 +1221,7 @@ export default function Phosphor() {
     if (!imgRef.current) return;
     const id = requestAnimationFrame(() => process());
     return () => cancelAnimationFrame(id);
-  }, [process]);
+  }, [process, imgTick]);
 
   // ── Splash: hide once the first render exists and a minimum on-screen time passed,
   // so it covers the initial processing flash without ever flickering. ──
