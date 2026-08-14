@@ -1919,11 +1919,16 @@ function Field({label,children}) {
 function Dropdown({options,value,onChange,preview}) {
   const [open,setOpen] = useState(false);
   const ref = useRef(null);
+  const selRef = useRef(null);
   useEffect(() => {
     if(!open) return;
     const onDoc = e => { if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown',onDoc);
     return () => document.removeEventListener('mousedown',onDoc);
+  },[open]);
+  // Reveal the currently-selected item when the menu opens, instead of resetting to the top.
+  useEffect(() => {
+    if(open) selRef.current?.scrollIntoView({block:'nearest'});
   },[open]);
   const current = options.find(o=>o[0]===value);
   return (
@@ -1939,7 +1944,7 @@ function Dropdown({options,value,onChange,preview}) {
       {open &&
         <div className="absolute z-20 mt-1 left-0 right-0 max-h-64 overflow-y-auto border border-zinc-700 bg-zinc-900 shadow-xl">
           {options.map(([v,l,desc])=>(
-            <button key={v} onClick={()=>{onChange(v); setOpen(false);}}
+            <button key={v} ref={v===value?selRef:null} onClick={()=>{onChange(v); setOpen(false);}}
               className={`w-full text-left px-2.5 py-2 transition-colors ${v===value?'bg-amber-950/40':'hover:bg-zinc-800'}`}>
               <div className="flex items-center justify-between gap-2">
                 <div className={`text-xs truncate ${v===value?'text-amber-100':'text-zinc-300'}`}>{l}</div>
