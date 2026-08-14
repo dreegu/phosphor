@@ -198,10 +198,31 @@ const DEFAULT_SETTINGS = {
   phosphorGlow:0, luminanceLift:0, scanlines:0, noise:16, chromaShift:0.5,
 };
 
-// Pool of default image + settings pairs for the shuffle button. More images to be added later.
+// Pool of sample images shown on entry. Add more { image, fileName } entries here.
 const DEFAULT_POOL = [
   { image:DEFAULT_IMAGE, fileName:'creation-of-adam.jpg', settings:DEFAULT_SETTINGS },
 ];
+
+// Shuffle-bag over the sample pool, persisted in localStorage (shared across tabs of the
+// same origin), so every fresh visit — reload, duplicated tab, new tab — advances to a
+// different photo and the whole pool is shown before any repeats.
+function nextSampleIndex(n) {
+  if (n <= 1) return 0;
+  const KEY = 'ps_sample_bag';
+  let bag = null;
+  try { bag = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { /* ignore */ }
+  if (!bag || bag.n !== n || !Array.isArray(bag.order) || bag.pos >= bag.order.length) {
+    const order = [...Array(n).keys()];
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    const last = bag ? bag.last : null;
+    if (last != null && order[0] === last) [order[0], order[1]] = [order[1], order[0]]; // no back-to-back repeat
+    bag = { n, order, pos: 0, last };
+  }
+  const idx = bag.order[bag.pos];
+  bag.pos += 1; bag.last = idx;
+  try { localStorage.setItem(KEY, JSON.stringify(bag)); } catch { /* ignore */ }
+  return idx;
+}
 
 function hexToRgb(h) { return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]; }
 function luminance([r,g,b]) { return (0.299*r + 0.587*g + 0.114*b) / 255; }
@@ -998,7 +1019,7 @@ export default function Phosphor() {
   // Fresh entry: a random sample image paired with a random look, so the landing frame
   // is different every visit. (Add more images to DEFAULT_POOL to vary the photo too.)
   const shuffleAll = () => {
-    const img = DEFAULT_POOL[Math.floor(Math.random()*DEFAULT_POOL.length)];
+    const img = DEFAULT_POOL[nextSampleIndex(DEFAULT_POOL.length)];
     const look = LOOK_PRESETS[Math.floor(Math.random()*LOOK_PRESETS.length)];
     setSourceDevice(null);
     applyLookPreset(look);
