@@ -10,15 +10,67 @@ const AUTHOR_URL = 'https://rodrigosilva.design';
 
 
 // ─── DITHER MATRICES ────────────────────────────────────────────────────────
-const BAYER_4X4 = [[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
-const CROSS_8X8 = [
+// Recursive Bayer (ordered) matrix generator — order 2/4/8 give coarser→finer grids.
+const B2 = [[0,2],[3,1]];
+function genBayer(order){
+  let m=[[0]], s=1;
+  while(s<order){ const ns=s*2, nm=Array.from({length:ns},()=>Array(ns).fill(0));
+    for(let y=0;y<ns;y++) for(let x=0;x<ns;x++) nm[y][x]=4*m[y%s][x%s]+B2[Math.floor(y/s)][Math.floor(x/s)];
+    m=nm; s=ns; }
+  return m;
+}
+// The old "cross" pattern — kept as Diamond, which is what it actually looks like.
+const DIAMOND_8X8 = [
   [0,1,2,3,4,5,6,7],[1,0,1,2,3,4,5,0],[2,3,0,1,2,3,0,1],[3,4,5,0,1,0,1,2],
   [4,5,6,7,0,1,2,3],[3,4,5,0,1,0,1,2],[2,3,0,1,2,3,0,1],[1,0,1,2,3,4,5,0],
 ];
+// Real cross-hatch: rank cells by proximity to EITHER diagonal, so as tone darkens the
+// pixels fill in along both diagonals — forming X / stitch strokes in the shadows.
+const CROSSHATCH_8X8 = (() => {
+  const N = 8, cells = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const p1 = ((i - j) % N + N) % N, t1 = Math.min(p1, N - p1);
+    const p2 = (i + j) % N, t2 = Math.min(p2, N - p2);
+    cells.push({ i, j, k: Math.min(t1, t2) * 64 + ((i * 5 + j * 3) % N) * 8 + ((i + j) % 2) });
+  }
+  cells.sort((a, b) => a.k - b.k);
+  const m = Array.from({ length: N }, () => Array(N).fill(0));
+  cells.forEach((c, r) => { m[c.i][c.j] = r; });
+  return m;
+})();
 const ORDERED_PATTERNS = {
-  bayer: { matrix: BAYER_4X4, size: 4, max: 16 },
-  cross: { matrix: CROSS_8X8, size: 8, max: 8 },
+  bayer2:  { matrix: genBayer(2), size: 2, max: 4 },
+  bayer:   { matrix: genBayer(4), size: 4, max: 16 },
+  bayer8:  { matrix: genBayer(8), size: 8, max: 64 },
+  diamond: { matrix: DIAMOND_8X8,    size: 8, max: 8 },
+  cross:   { matrix: CROSSHATCH_8X8, size: 8, max: 64 },
 };
+
+// Riemersma dithering diffuses error along a Hilbert space-filling curve, so error travels
+// in a locally-continuous path instead of scanline order — no directional grain, a soft
+// even texture. Cache the curve's pixel order per grid size (recomputing it every render
+// would stutter on slider drags).
+let _hilbert = { key: '', order: null };
+function hilbertOrder(w, h) {
+  const key = w + 'x' + h;
+  if (_hilbert.key === key) return _hilbert.order;
+  let n = 1; while (n < Math.max(w, h)) n *= 2;
+  const order = new Int32Array(w * h); let idx = 0;
+  for (let d = 0; d < n * n && idx < order.length; d++) {
+    let t = d, x = 0, y = 0;
+    for (let s = 1; s < n; s *= 2) {
+      const rx = 1 & (t >> 1), ry = 1 & (t ^ rx);
+      if (ry === 0) { if (rx === 1) { x = s - 1 - x; y = s - 1 - y; } const tmp = x; x = y; y = tmp; }
+      x += s * rx; y += s * ry; t >>= 2;
+    }
+    if (x < w && y < h) order[idx++] = y * w + x;
+  }
+  _hilbert = { key, order };
+  return order;
+}
+// Weighted error history: most-recent error weighted 1, decaying to 1/16 over 16 steps.
+const RIEM_N = 16;
+const RIEM_W = Array.from({ length: RIEM_N }, (_, k) => Math.pow(1 / 16, k / (RIEM_N - 1)));
 
 const ASCII_RAMPS = {
   standard: { label:'STANDARD', chars:' .:-=+*#%@' },
@@ -343,7 +395,7 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut){
   } else {
     pal = vividPalette(medianCutPalette(samples, Math.max(2,Math.min(16,n||16))));
   }
-  const ordered = algo==='bayer'||algo==='cross'||algo==='bluenoise';
+  const ordered = algo==='bluenoise'||!!ORDERED_PATTERNS[algo];
   if(ordered){
     const{matrix,size,max}=algo==='bluenoise'?getBlueNoise():ORDERED_PATTERNS[algo];
     const amp=48;
@@ -351,6 +403,17 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut){
       const i=y*sw+x, thr=((matrix[y%size][x%size]+0.5)/max-0.5)*amp;
       const c=pal[nearestIdx(R[i]+thr,G[i]+thr,B[i]+thr,pal)], oi=i*4;
       out[oi]=c[0];out[oi+1]=c[1];out[oi+2]=c[2];out[oi+3]=255;
+    }
+  } else if(algo==='riemersma'){
+    const order=hilbertOrder(sw,sh);
+    const hr=new Float32Array(RIEM_N),hg=new Float32Array(RIEM_N),hb=new Float32Array(RIEM_N); let hp=0;
+    for(let m=0;m<order.length;m++){
+      const i=order[m];
+      let ar=0,ag=0,ab=0; for(let k=0;k<RIEM_N;k++){const w=RIEM_W[k],idx=(hp-1-k+RIEM_N)%RIEM_N; ar+=hr[idx]*w; ag+=hg[idx]*w; ab+=hb[idx]*w;}
+      const r=Math.max(0,Math.min(255,R[i]+ar)),g=Math.max(0,Math.min(255,G[i]+ag)),b=Math.max(0,Math.min(255,B[i]+ab));
+      const c=pal[nearestIdx(r,g,b,pal)], oi=i*4;
+      out[oi]=c[0];out[oi+1]=c[1];out[oi+2]=c[2];out[oi+3]=255;
+      hr[hp]=r-c[0]; hg[hp]=g-c[1]; hb[hp]=b-c[2]; hp=(hp+1)%RIEM_N;
     }
   } else {
     for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){
@@ -405,13 +468,26 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adapti
     }
     return lums.length-1;
   };
-  if (algo==='bayer'||algo==='cross'||algo==='bluenoise') {
+  if (algo==='bluenoise'||!!ORDERED_PATTERNS[algo]) {
     const{matrix,size,max}=algo==='bluenoise'?getBlueNoise():ORDERED_PATTERNS[algo];
     for (let y=0;y<sh;y++) for (let x=0;x<sw;x++) {
       const i=(y*sw+x)*4;
       const Y=getY(data[i],data[i+1],data[i+2]);
       const idx=qOrd(Y,x,y,matrix,size,max);
       const c=cols[idx]; out[i]=c[0];out[i+1]=c[1];out[i+2]=c[2];out[i+3]=(transparent&&idx===bgIdx)?0:255;
+    }
+  } else if (algo==='riemersma') {
+    const gL=lums.map(l=>l*255);
+    const order=hilbertOrder(sw,sh);
+    const hbuf=new Float32Array(RIEM_N); let hp=0;
+    for (let n=0;n<order.length;n++) {
+      const i=order[n], di=i*4;
+      const base=getY(data[di],data[di+1],data[di+2])*255;
+      let acc=0; for(let k=0;k<RIEM_N;k++) acc+=hbuf[(hp-1-k+RIEM_N)%RIEM_N]*RIEM_W[k];
+      const v=Math.max(0,Math.min(255,base+acc));
+      let best=0,bd=Infinity; for(let k=0;k<gL.length;k++){const d=Math.abs(v-gL[k]);if(d<bd){bd=d;best=k;}}
+      hbuf[hp]=v-gL[best]; hp=(hp+1)%RIEM_N;
+      const c=cols[best]; out[di]=c[0];out[di+1]=c[1];out[di+2]=c[2];out[di+3]=(transparent&&best===bgIdx)?0:255;
     }
   } else {
     const work=new Float32Array(sw*sh);
@@ -1393,7 +1469,7 @@ export default function Phosphor() {
       {mode==='dither' &&
         <Field label="Pattern">
           <Dropdown value={algo} onChange={setAlgo}
-            options={[['bayer','Grid'],['cross','Cross'],['diffusion','Floyd–Steinberg'],['jjn','Jarvis'],['stucki','Stucki'],['sierra','Sierra'],['atkinson','Atkinson'],['bluenoise','Blue noise']]}/>
+            options={[['bayer2','Grid 2×2'],['bayer','Grid 4×4'],['bayer8','Grid 8×8'],['diamond','Diamond'],['cross','Cross'],['bluenoise','Blue noise'],['diffusion','Floyd–Steinberg'],['jjn','Jarvis'],['stucki','Stucki'],['sierra','Sierra'],['atkinson','Atkinson'],['riemersma','Riemersma']]}/>
         </Field>}
       {mode==='ascii' &&
         <Field label="Character set">
