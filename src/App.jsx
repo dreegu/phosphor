@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Code2, Eye } from 'lucide-react';
+import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Code2, Eye, LayoutGrid, Grid3x3, Contrast, Palette, Radio, Save } from 'lucide-react';
 import LZString from 'lz-string';
 
 const GITHUB_URL = 'https://github.com/dreegu/phosphor';
@@ -1026,6 +1026,16 @@ export default function Phosphor() {
   const clampZoom = z => Math.max(0.25, Math.min(8, z));
   const resetView = () => { setZoom(1); setPan({x:0,y:0}); };
 
+  // Below md (768px) we swap the two-tab sidebar for a per-section tabbed layout.
+  const [isNarrow, setIsNarrow] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const on = () => setIsNarrow(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+
   // Decide pixelated vs smooth from the actual on-screen size vs the render's native size.
   const checkSmooth = useCallback(() => {
     const im = previewImgRef.current;
@@ -1323,8 +1333,206 @@ export default function Phosphor() {
   const atmosphereDirty = phosphorGlow!==0 || luminanceLift!==0 || scanlines!==0 || noise!==0 || chromaShift!==0;
   const resetAtmosphere = () => { setPhosphorGlow(0); setLuminanceLift(0); setScanlines(0); setNoise(0); setChromaShift(0); };
 
+  // ── Control panels, factored so the desktop sidebar (long scroll) and the mobile
+  //    per-section tabs can compose the same pieces without duplicating markup. ──
+  const presetsBody = (<>
+    <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur border-b border-zinc-800 px-4 py-3">
+      <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
+    </div>
+    <div className="anim-fadein flex flex-col">
+      {CATEGORIES.map(([key,label])=>{
+        const looks = LOOK_PRESETS.filter(p=>p.category===key);
+        if(!looks.length) return null;
+        return (
+        <Panel key={key} label={label}>
+          <div className="grid grid-cols-2 gap-1.5">
+            {looks.map(p=>{
+              const on=activeLook===p.name;
+              return (
+              <button key={p.name} onClick={()=>applyLookPreset(p)} title={p.name}
+                className={`group flex flex-col overflow-hidden border transition-colors ${on?'border-amber-600':'border-zinc-800 hover:border-zinc-600'}`}>
+                <div className="relative aspect-[16/10] w-full bg-zinc-900 overflow-hidden">
+                  {lookThumbs[p.name]
+                    ? <img src={lookThumbs[p.name]} alt="" className="w-full h-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
+                    : <div className="w-full h-full animate-pulse bg-zinc-800"/>}
+                </div>
+                <div className={`text-[11px] leading-tight py-1.5 px-1 text-center ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
+              </button>
+            );})}
+          </div>
+        </Panel>
+        );
+      })}
+    </div>
+  </>);
+
+  const renderingPanel = (
+    <Panel label="Rendering">
+      <Field label="Mode">
+        <Segmented options={[['dither','Dither'],['ascii','ASCII'],['halftone','Halftone']]} value={mode} onChange={handleModeChange}/>
+      </Field>
+      {mode==='dither' &&
+        <Field label="Pattern">
+          <Dropdown value={algo} onChange={setAlgo}
+            options={[['bayer','Grid'],['cross','Cross'],['diffusion','Grain'],['atkinson','Atkinson'],['stucki','Stucki'],['sierra','Sierra'],['bluenoise','Blue noise']]}/>
+        </Field>}
+      {mode==='ascii' &&
+        <Field label="Character set">
+          <Dropdown value={asciiRamp} onChange={setAsciiRamp}
+            options={Object.entries(ASCII_RAMPS).map(([k,v])=>[k, v.label[0]+v.label.slice(1).toLowerCase(), v.chars])}/>
+        </Field>}
+      {mode==='halftone' && <>
+        <Field label="Dot shape">
+          <Segmented value={htShape} onChange={setHtShape}
+            options={[['circle',<Circle size={13}/>],['square',<Square size={13}/>],['diamond',<Diamond size={13}/>],['line',<Minus size={15}/>]]}/>
+        </Field>
+        <NumSlider label="Screen angle" value={htAngle} min={0} max={90} step={1} onChange={setHtAngle}/>
+      </>}
+      <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
+    </Panel>
+  );
+
+  const appearancePanel = (
+    <Panel label="Appearance" action={appearanceDirty && <ResetButton onClick={resetAppearance} title="Reset appearance"/>}>
+      <NumSlider label="Contrast"   value={contrast}   min={-100} max={100} step={1}    onChange={setContrast}/>
+      <NumSlider label="Midtones"   value={midtones}   min={0.3}  max={2.5} step={0.05} onChange={setMidtones}/>
+      <NumSlider label="Highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
+      <NumSlider label="Shadows"    value={shadows}    min={0.3}  max={2.5} step={0.05} onChange={setShadows}/>
+    </Panel>
+  );
+
+  const ditherColorPanel = (
+    <Panel label="Color">
+      <Field label="Mode">
+        <Segmented options={[['palette','Palette'],['adaptive','Adaptive']]} value={dcolor} onChange={setDcolor}/>
+      </Field>
+      {dcolor==='adaptive' ? <>
+        <Field label="Gamut">
+          <Dropdown value={gamut} onChange={setGamut}
+            options={[['full','Full color']].concat(Object.entries(DEVICE_GAMUTS).map(([k,g])=>[k,g.label]))}/>
+        </Field>
+        {gamut==='full' && <NumSlider label="Colors" value={adaptiveCount} min={2} max={16} step={1} onChange={setAdaptiveCount}/>}
+        <div className="text-xs text-zinc-600 leading-relaxed">{gamut==='full'
+          ? "Builds a palette from the photo's own colours and maps each pixel to the nearest — the image keeps its real hues instead of a fixed look."
+          : `Maps the photo onto the ${DEVICE_GAMUTS[gamut].label} color set — authentic hardware colors, approximated from your image.`}</div>
+      </> : <>
+        <Field label="Palette">
+          <Dropdown value={paletteKey||'__custom'}
+            onChange={k=>{ if(k!=='__custom') applyPalettePreset(k); }}
+            options={(paletteKey?[]:[['__custom','Custom']]).concat(Object.entries(PALETTE_PRESETS).map(([k,p])=>[k,p.name]))}
+            preview={k=>{ const cols=k==='__custom'?displayPalette.map(e=>e.color):PALETTE_PRESETS[k].colors;
+              return <span className="flex h-3.5 w-11 overflow-hidden border border-zinc-700">{cols.map((c,i)=><span key={i} style={{background:c,flex:1}}/>)}</span>; }}/>
+        </Field>
+        <div className="flex flex-col gap-1.5">
+          {displayPalette.map(entry=>(
+            <div key={entry.id} className="flex items-center gap-2">
+              <div className="swatch relative w-7 h-7 border border-zinc-700 shrink-0">
+                <input type="color" value={entry.color} onChange={e=>updateColor(entry.id,e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
+                <div className="w-full h-full" style={{background:entry.color}}/>
+              </div>
+              <HexInput value={entry.color} onChange={hex=>updateColor(entry.id,hex)}/>
+              <input type="range" min={0} max={1} step={0.01} value={entry.anchor}
+                onChange={e=>updateAnchor(entry.id,parseFloat(e.target.value))} className="flex-1"/>
+              {palette.length>2 &&
+                <button onClick={()=>removeColor(entry.id)} title="Remove color" aria-label="remove color"
+                  className="remove-btn text-zinc-600 hover:text-amber-400 w-4 flex items-center justify-center shrink-0">
+                  <X size={10}/>
+                </button>}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-between text-xs text-zinc-700 mt-1"><span>Shadows</span><span>Highlights</span></div>
+        {palette.length===2 &&
+          <button onClick={invertPalette}
+            className="tap-target mt-1 w-full py-1 border border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1.5 text-xs">
+            <ArrowLeftRight size={10}/> Invert
+          </button>}
+        <button onClick={addColor} disabled={palette.length>=8}
+          title={palette.length>=8?'Maximum of 8 colors reached':'Add a color'}
+          className="mt-1 w-full py-1 border border-dashed border-zinc-800 enabled:hover:border-amber-700 text-zinc-600 enabled:hover:text-amber-400 disabled:opacity-40 disabled:cursor-default flex items-center justify-center gap-1 text-xs">
+          <Plus size={10}/> Add color
+        </button>
+      </>}
+    </Panel>
+  );
+
+  const asciiSubjectPanel = (
+    <Panel label="Subject">
+      <Field label="Characters on">
+        <Segmented options={[[false,'Bright'],[true,'Dark']]} value={asciiInvert} onChange={setAsciiInvert}/>
+      </Field>
+      <Field label="Weight">
+        <Segmented options={[[false,'Regular'],[true,'Bold']]} value={asciiBold} onChange={setAsciiBold}/>
+      </Field>
+      <NumSlider label="Clear background" value={asciiCutout} min={0} max={95} step={1} onChange={setAsciiCutout}/>
+      <div className="text-xs text-zinc-600 leading-relaxed">Raise to leave flat areas blank so only the subject is drawn. Toggle whether bright or dark pixels get characters.</div>
+    </Panel>
+  );
+
+  const asciiColorsPanel = (
+    <Panel label="Colors">
+      <div className="flex items-center gap-4">
+        <ColorSwatch label="Text" value={asciiFg} onChange={setAsciiFg}/>
+        <ColorSwatch label="Bg"   value={asciiBg} onChange={setAsciiBg}/>
+        <InvertButton onClick={invertAscii} title="swap text and background"/>
+      </div>
+    </Panel>
+  );
+
+  const halftonePrintPanel = (
+    <Panel label="Print">
+      <div className="flex items-center gap-4 mb-1">
+        <ColorSwatch label="Ink"   value={htInk}   onChange={setHtInk}/>
+        <ColorSwatch label="Paper" value={htPaper} onChange={setHtPaper}/>
+        <InvertButton onClick={invertHalftone} title="swap ink and paper"/>
+      </div>
+    </Panel>
+  );
+
+  const atmospherePanel = (
+    <Panel label="Atmosphere" action={atmosphereDirty && <ResetButton onClick={resetAtmosphere} title="Reset atmosphere"/>}>
+      <NumSlider label="Phosphor glow"  value={phosphorGlow}  min={0} max={100} step={1} onChange={setPhosphorGlow}/>
+      <NumSlider label="Luminance lift" value={luminanceLift} min={0} max={100} step={1} onChange={setLuminanceLift}/>
+      <NumSlider label="Scanlines" value={scanlines} min={0} max={100} step={1} onChange={setScanlines}/>
+      <NumSlider label="Noise"     value={noise}     min={0} max={100} step={1} onChange={setNoise}/>
+      <NumSlider label="Chroma shift" value={chromaShift} min={0} max={20} step={0.5} onChange={setChromaShift}/>
+    </Panel>
+  );
+
+  const shareLinkPanel = (
+    <Panel label="Share settings">
+      <button onClick={shareSettings}
+        className="tap-target flex items-center justify-center gap-2 py-2 border border-zinc-800 text-zinc-400 hover:text-amber-400 hover:border-amber-800 text-xs tracking-wider transition-colors">
+        <Share2 size={11}/> {shared?'Link copied!':'Copy settings link'}
+      </button>
+      <div className="text-xs text-zinc-600 leading-relaxed">Copies a link that reopens the tool with all of the current settings applied.</div>
+    </Panel>
+  );
+
+  // Mode-specific colour grouping used by both layouts (ASCII keeps subject + colours together on desktop).
+  const desktopModeGroup = mode==='dither'
+    ? <div key="dither" className="anim-fadein flex flex-col">{ditherColorPanel}</div>
+    : mode==='ascii'
+    ? <div key="ascii" className="anim-fadein flex flex-col">{asciiSubjectPanel}{asciiColorsPanel}</div>
+    : <div key="halftone" className="anim-fadein flex flex-col">{halftonePrintPanel}</div>;
+
+  const mobileColorPanel = mode==='dither' ? ditherColorPanel : mode==='ascii' ? asciiColorsPanel : halftonePrintPanel;
+
+  // Icon tabs for the mobile layout. Section names live in each panel header, so icons carry the bar.
+  const MOBILE_TABS = [
+    ['presets','Presets',LayoutGrid],
+    ['rendering','Rendering',Grid3x3],
+    ['appearance','Appearance',Contrast],
+    ['color','Color',Palette],
+    ['atmosphere','Atmosphere',Radio],
+    ['share','Save',Save],
+  ];
+  const mobileTabIds = MOBILE_TABS.map(t=>t[0]);
+
   return (
-    <div className="h-screen flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden">
+    <div className="h-screen flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
+      style={{paddingTop:'env(safe-area-inset-top)',paddingLeft:'env(safe-area-inset-left)',paddingRight:'env(safe-area-inset-right)'}}>
       <style>{`
         input[type=range]{-webkit-appearance:none;height:2px;background:#3f3f46;width:100%}
         input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;background:#f4e4c1;border-radius:0;cursor:pointer;margin-top:-4px}
@@ -1382,8 +1590,10 @@ export default function Phosphor() {
             <Upload size={12}/> <span className="hidden sm:inline">UPLOAD</span>
             <input type="file" accept="image/*" className="hidden" onChange={handleFile}/>
           </label>
-          <ExportMenu format={format} setFormat={setFormat}
-            transparentBg={transparentBg} setTransparentBg={setTransparentBg} onDownload={handleDownload}/>
+          <div className="hidden md:block">
+            <ExportMenu format={format} setFormat={setFormat}
+              transparentBg={transparentBg} setTransparentBg={setTransparentBg} onDownload={handleDownload}/>
+          </div>
         </div>
       </div>
 
@@ -1391,22 +1601,26 @@ export default function Phosphor() {
         <div className="flex flex-1 overflow-hidden flex-col md:flex-row" onDrop={handleDrop} onDragOver={e=>e.preventDefault()}>
 
           {/* IMAGE */}
-          <div className="relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 h-[45vh] md:h-auto md:flex-1">
-            <div ref={zoomAreaRef} className="flex-1 overflow-hidden relative touch-none select-none" style={{cursor:'grab'}}>
+          <div className="relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 h-[40vh] md:h-auto md:flex-1">
+            <div ref={zoomAreaRef} onContextMenu={e=>e.preventDefault()}
+              className="flex-1 overflow-hidden relative touch-none select-none" style={{cursor:'grab'}}>
               <div className="w-full h-full flex items-center justify-center" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
                 <img ref={previewImgRef} onLoad={checkSmooth} src={showingOriginal ? imageSrc : (outputUrl||imageSrc)} alt="preview" draggable={false}
+                  onContextMenu={e=>e.preventDefault()}
                   className={`max-w-full max-h-full block ${transparentBg&&!showingOriginal?'checker':''}`}
-                  style={{imageRendering:(mode==='ascii'||showingOriginal||smoothScale)?'auto':'pixelated'}}/>
+                  style={{imageRendering:(mode==='ascii'||showingOriginal||smoothScale)?'auto':'pixelated',WebkitTouchCallout:'none',WebkitUserSelect:'none',userSelect:'none'}}/>
               </div>
               {showingOriginal &&
                 <div className="absolute top-3 left-3 px-2 py-1 text-[10px] tracking-widest text-amber-100 bg-black/70 border border-amber-700/60 pointer-events-none">ORIGINAL</div>}
-              {outputUrl && !comparing &&
-                <div className="md:hidden absolute bottom-3 left-1/2 -translate-x-1/2 px-2.5 py-1 text-[10px] tracking-wide text-zinc-400 bg-black/50 rounded pointer-events-none">
-                  hold image to compare
-                </div>}
+              {/* Mobile: pinch to zoom; floating reset appears only once zoomed/panned */}
+              {isNarrow && (zoom!==1 || pan.x!==0 || pan.y!==0) &&
+                <button onClick={resetView}
+                  className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] tracking-wide text-amber-100 bg-black/70 border border-amber-700/60 rounded backdrop-blur">
+                  <RotateCcw size={12}/> {Math.round(zoom*100)}%
+                </button>}
             </div>
 
-            <div className="relative flex items-center px-3 py-2 border-t border-zinc-800 shrink-0">
+            <div className="hidden md:flex relative items-center px-3 py-2 border-t border-zinc-800 shrink-0">
               <div className="flex items-center gap-1.5">
                 <button onClick={()=>zoomAt(viewRef.current.zoom-0.25,0,0)} title="zoom out" aria-label="zoom out"
                   className="icon-btn w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
@@ -1436,183 +1650,58 @@ export default function Phosphor() {
           {/* CONTROLS */}
           <div className="w-full md:w-72 xl:w-80 flex-1 md:flex-none min-h-0 flex flex-col bg-zinc-950 border-t md:border-t-0 md:border-l border-zinc-800">
 
-            {/* TAB BAR */}
-            <div className="flex shrink-0 border-b border-zinc-800">
-              {[['presets','PRESETS'],['edit','EDIT']].map(([v,l])=>(
-                <button key={v} onClick={()=>setActiveTab(v)}
-                  className={`tap-target flex-1 py-2.5 text-xs font-medium tracking-wide transition-colors ${activeTab===v?'text-amber-100 border-b-2 border-amber-600':'text-zinc-500 hover:text-zinc-300 border-b-2 border-transparent'}`}>{l}</button>
-              ))}
-            </div>
+            {/* TAB BAR — two tabs on desktop, per-section icon tabs on mobile */}
+            {isNarrow ? (
+              <div className="flex shrink-0 border-b border-zinc-800">
+                {MOBILE_TABS.map(([v,label,Icon])=>{
+                  const on = (activeTab===v) || (v==='rendering' && !mobileTabIds.includes(activeTab));
+                  return (
+                    <button key={v} onClick={()=>setActiveTab(v)} title={label} aria-label={label}
+                      className={`tap-target flex-1 flex items-center justify-center py-3 border-b-2 transition-colors ${on?'text-amber-100 border-amber-600':'text-zinc-500 hover:text-zinc-300 border-transparent'}`}>
+                      <Icon size={17}/>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex shrink-0 border-b border-zinc-800">
+                {[['presets','PRESETS'],['edit','EDIT']].map(([v,l])=>(
+                  <button key={v} onClick={()=>setActiveTab(v)}
+                    className={`tap-target flex-1 py-2.5 text-xs font-medium tracking-wide transition-colors ${(activeTab===v||(v==='edit'&&!['presets','edit'].includes(activeTab)))?'text-amber-100 border-b-2 border-amber-600':'text-zinc-500 hover:text-zinc-300 border-b-2 border-transparent'}`}>{l}</button>
+                ))}
+              </div>
+            )}
 
             <div ref={ctrlRef} className="ctrl flex-1 overflow-y-auto flex flex-col">
 
-            {activeTab==='presets' && <>
-              <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur border-b border-zinc-800 px-4 py-3">
-                <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
-              </div>
-              <div className="anim-fadein flex flex-col">
-              {CATEGORIES.map(([key,label])=>{
-                const looks = LOOK_PRESETS.filter(p=>p.category===key);
-                if(!looks.length) return null;
-                return (
-                <Panel key={key} label={label}>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {looks.map(p=>{
-                      const on=activeLook===p.name;
-                      return (
-                      <button key={p.name} onClick={()=>applyLookPreset(p)} title={p.name}
-                        className={`group flex flex-col overflow-hidden border transition-colors ${on?'border-amber-600':'border-zinc-800 hover:border-zinc-600'}`}>
-                        <div className="relative aspect-[16/10] w-full bg-zinc-900 overflow-hidden">
-                          {lookThumbs[p.name]
-                            ? <img src={lookThumbs[p.name]} alt="" className="w-full h-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
-                            : <div className="w-full h-full animate-pulse bg-zinc-800"/>}
-                        </div>
-                        <div className={`text-[11px] leading-tight py-1.5 px-1 text-center ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
-                      </button>
-                    );})}
-                  </div>
-                </Panel>
-                );
-              })}
-              </div>
-            </>}
-
-            {activeTab==='edit' && <div className="anim-fadein flex flex-col">
-
-            <Panel label="Rendering">
-              <Field label="Mode">
-                <Segmented options={[['dither','Dither'],['ascii','ASCII'],['halftone','Halftone']]} value={mode} onChange={handleModeChange}/>
-              </Field>
-              {mode==='dither' &&
-                <Field label="Pattern">
-                  <Dropdown value={algo} onChange={setAlgo}
-                    options={[['bayer','Grid'],['cross','Cross'],['diffusion','Grain'],['atkinson','Atkinson'],['stucki','Stucki'],['sierra','Sierra'],['bluenoise','Blue noise']]}/>
-                </Field>}
-              {mode==='ascii' &&
-                <Field label="Character set">
-                  <Dropdown value={asciiRamp} onChange={setAsciiRamp}
-                    options={Object.entries(ASCII_RAMPS).map(([k,v])=>[k, v.label[0]+v.label.slice(1).toLowerCase(), v.chars])}/>
-                </Field>}
-              {mode==='halftone' && <>
-                <Field label="Dot shape">
-                  <Segmented value={htShape} onChange={setHtShape}
-                    options={[['circle',<Circle size={13}/>],['square',<Square size={13}/>],['diamond',<Diamond size={13}/>],['line',<Minus size={15}/>]]}/>
-                </Field>
-                <NumSlider label="Screen angle" value={htAngle} min={0} max={90} step={1} onChange={setHtAngle}/>
-              </>}
-              <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
-            </Panel>
-
-            <Panel label="Appearance" action={appearanceDirty && <ResetButton onClick={resetAppearance} title="Reset appearance"/>}>
-              <NumSlider label="Contrast"   value={contrast}   min={-100} max={100} step={1}    onChange={setContrast}/>
-              <NumSlider label="Midtones"   value={midtones}   min={0.3}  max={2.5} step={0.05} onChange={setMidtones}/>
-              <NumSlider label="Highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
-              <NumSlider label="Shadows"    value={shadows}    min={0.3}  max={2.5} step={0.05} onChange={setShadows}/>
-            </Panel>
-
-            {mode==='dither' && <div key="dither" className="anim-fadein flex flex-col">
-              <Panel label="Color">
-                <Field label="Mode">
-                  <Segmented options={[['palette','Palette'],['adaptive','Adaptive']]} value={dcolor} onChange={setDcolor}/>
-                </Field>
-                {dcolor==='adaptive' ? <>
-                  <Field label="Gamut">
-                    <Dropdown value={gamut} onChange={setGamut}
-                      options={[['full','Full color']].concat(Object.entries(DEVICE_GAMUTS).map(([k,g])=>[k,g.label]))}/>
-                  </Field>
-                  {gamut==='full' && <NumSlider label="Colors" value={adaptiveCount} min={2} max={16} step={1} onChange={setAdaptiveCount}/>}
-                  <div className="text-xs text-zinc-600 leading-relaxed">{gamut==='full'
-                    ? "Builds a palette from the photo's own colours and maps each pixel to the nearest — the image keeps its real hues instead of a fixed look."
-                    : `Maps the photo onto the ${DEVICE_GAMUTS[gamut].label} color set — authentic hardware colors, approximated from your image.`}</div>
-                </> : <>
-                  <Field label="Palette">
-                    <Dropdown value={paletteKey||'__custom'}
-                      onChange={k=>{ if(k!=='__custom') applyPalettePreset(k); }}
-                      options={(paletteKey?[]:[['__custom','Custom']]).concat(Object.entries(PALETTE_PRESETS).map(([k,p])=>[k,p.name]))}
-                      preview={k=>{ const cols=k==='__custom'?displayPalette.map(e=>e.color):PALETTE_PRESETS[k].colors;
-                        return <span className="flex h-3.5 w-11 overflow-hidden border border-zinc-700">{cols.map((c,i)=><span key={i} style={{background:c,flex:1}}/>)}</span>; }}/>
-                  </Field>
-                  <div className="flex flex-col gap-1.5">
-                    {displayPalette.map(entry=>(
-                      <div key={entry.id} className="flex items-center gap-2">
-                        <div className="swatch relative w-7 h-7 border border-zinc-700 shrink-0">
-                          <input type="color" value={entry.color} onChange={e=>updateColor(entry.id,e.target.value)}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
-                          <div className="w-full h-full" style={{background:entry.color}}/>
-                        </div>
-                        <HexInput value={entry.color} onChange={hex=>updateColor(entry.id,hex)}/>
-                        <input type="range" min={0} max={1} step={0.01} value={entry.anchor}
-                          onChange={e=>updateAnchor(entry.id,parseFloat(e.target.value))} className="flex-1"/>
-                        {palette.length>2 &&
-                          <button onClick={()=>removeColor(entry.id)} title="Remove color" aria-label="remove color"
-                            className="remove-btn text-zinc-600 hover:text-amber-400 w-4 flex items-center justify-center shrink-0">
-                            <X size={10}/>
-                          </button>}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-xs text-zinc-700 mt-1"><span>Shadows</span><span>Highlights</span></div>
-                  {palette.length===2 &&
-                    <button onClick={invertPalette}
-                      className="tap-target mt-1 w-full py-1 border border-zinc-800 hover:border-amber-700 text-zinc-600 hover:text-amber-400 flex items-center justify-center gap-1.5 text-xs">
-                      <ArrowLeftRight size={10}/> Invert
-                    </button>}
-                  <button onClick={addColor} disabled={palette.length>=8}
-                    title={palette.length>=8?'Maximum of 8 colors reached':'Add a color'}
-                    className="mt-1 w-full py-1 border border-dashed border-zinc-800 enabled:hover:border-amber-700 text-zinc-600 enabled:hover:text-amber-400 disabled:opacity-40 disabled:cursor-default flex items-center justify-center gap-1 text-xs">
-                    <Plus size={10}/> Add color
-                  </button>
-                </>}
-              </Panel>
-            </div>}
-
-            {mode==='ascii' && <div key="ascii" className="anim-fadein flex flex-col">
-              <Panel label="Subject">
-                <Field label="Characters on">
-                  <Segmented options={[[false,'Bright'],[true,'Dark']]} value={asciiInvert} onChange={setAsciiInvert}/>
-                </Field>
-                <Field label="Weight">
-                  <Segmented options={[[false,'Regular'],[true,'Bold']]} value={asciiBold} onChange={setAsciiBold}/>
-                </Field>
-                <NumSlider label="Clear background" value={asciiCutout} min={0} max={95} step={1} onChange={setAsciiCutout}/>
-                <div className="text-xs text-zinc-600 leading-relaxed">Raise to leave flat areas blank so only the subject is drawn. Toggle whether bright or dark pixels get characters.</div>
-              </Panel>
-              <Panel label="Colors">
-                <div className="flex items-center gap-4">
-                  <ColorSwatch label="Text" value={asciiFg} onChange={setAsciiFg}/>
-                  <ColorSwatch label="Bg"   value={asciiBg} onChange={setAsciiBg}/>
-                  <InvertButton onClick={invertAscii} title="swap text and background"/>
+            {isNarrow ? (
+              /* MOBILE: one section per tab */
+              activeTab==='presets' ? presetsBody
+              : activeTab==='appearance' ? <div className="anim-fadein flex flex-col">{appearancePanel}</div>
+              : activeTab==='color' ? <div className="anim-fadein flex flex-col">{mobileColorPanel}</div>
+              : activeTab==='atmosphere' ? <div className="anim-fadein flex flex-col">{atmospherePanel}</div>
+              : activeTab==='share' ? <div className="anim-fadein flex flex-col">
+                  <Panel label="Export">
+                    <ExportBody format={format} setFormat={setFormat}
+                      transparentBg={transparentBg} setTransparentBg={setTransparentBg} onDownload={handleDownload}/>
+                  </Panel>
+                  {shareLinkPanel}
                 </div>
-              </Panel>
-            </div>}
-
-            {mode==='halftone' && <div key="halftone" className="anim-fadein flex flex-col">
-              <Panel label="Print">
-                <div className="flex items-center gap-4 mb-1">
-                  <ColorSwatch label="Ink"   value={htInk}   onChange={setHtInk}/>
-                  <ColorSwatch label="Paper" value={htPaper} onChange={setHtPaper}/>
-                  <InvertButton onClick={invertHalftone} title="swap ink and paper"/>
+              : /* rendering (default) */ <div className="anim-fadein flex flex-col">
+                  {renderingPanel}
+                  {mode==='ascii' && asciiSubjectPanel}
                 </div>
-              </Panel>
-            </div>}
-
-            <Panel label="Atmosphere" action={atmosphereDirty && <ResetButton onClick={resetAtmosphere} title="Reset atmosphere"/>}>
-              <NumSlider label="Phosphor glow"  value={phosphorGlow}  min={0} max={100} step={1} onChange={setPhosphorGlow}/>
-              <NumSlider label="Luminance lift" value={luminanceLift} min={0} max={100} step={1} onChange={setLuminanceLift}/>
-              <NumSlider label="Scanlines" value={scanlines} min={0} max={100} step={1} onChange={setScanlines}/>
-              <NumSlider label="Noise"     value={noise}     min={0} max={100} step={1} onChange={setNoise}/>
-              <NumSlider label="Chroma shift" value={chromaShift} min={0} max={20} step={0.5} onChange={setChromaShift}/>
-            </Panel>
-
-            <Panel label="Share settings">
-              <button onClick={shareSettings}
-                className="tap-target flex items-center justify-center gap-2 py-2 border border-zinc-800 text-zinc-400 hover:text-amber-400 hover:border-amber-800 text-xs tracking-wider transition-colors">
-                <Share2 size={11}/> {shared?'Link copied!':'Copy settings link'}
-              </button>
-              <div className="text-xs text-zinc-600 leading-relaxed">Copies a link that reopens the tool with all of the current settings applied.</div>
-            </Panel>
-
-            </div>}
+            ) : (
+              /* DESKTOP: two tabs, edit is the full scroll */
+              activeTab==='presets' ? presetsBody
+              : <div className="anim-fadein flex flex-col">
+                  {renderingPanel}
+                  {appearancePanel}
+                  {desktopModeGroup}
+                  {atmospherePanel}
+                  {shareLinkPanel}
+                </div>
+            )}
 
             <div className="pb-2"/>
             </div>
@@ -1808,7 +1897,6 @@ function ExportMenu({format,setFormat,transparentBg,setTransparentBg,onDownload}
     document.addEventListener('mousedown',onDoc);
     return () => document.removeEventListener('mousedown',onDoc);
   },[open]);
-  const formats = [['png','PNG'],['jpeg','JPEG'],['svg','SVG']];
   return (
     <div ref={ref} className="relative">
       <button onClick={()=>setOpen(o=>!o)}
@@ -1816,24 +1904,37 @@ function ExportMenu({format,setFormat,transparentBg,setTransparentBg,onDownload}
         <Download size={12}/> EXPORT <ChevronDown size={12} className={`transition-transform ${open?'rotate-180':''}`}/>
       </button>
       {open &&
-        <div className="absolute right-0 mt-1 w-60 z-30 border border-zinc-700 bg-zinc-900 shadow-xl p-4 flex flex-col gap-3">
-          <Field label="Format">
-            <Segmented options={formats} value={format} onChange={setFormat}/>
-          </Field>
-          {(format==='png'||format==='jpeg') &&
-            <div className="text-[10px] text-zinc-600 leading-relaxed">Exports at your image's full resolution.</div>}
-          {(format==='png'||format==='svg') &&
-            <label className="flex items-center justify-between text-xs text-zinc-400 cursor-pointer">
-              <span>Transparent background</span>
-              <input type="checkbox" checked={transparentBg} onChange={e=>setTransparentBg(e.target.checked)} className="accent-amber-600"/>
-            </label>}
-          {format==='svg' &&
-            <div className="text-[10px] text-zinc-600 leading-relaxed">Scalable vector — ASCII exports as editable text, halftone as shapes. Atmosphere effects are omitted.</div>}
-          <button onClick={()=>{ onDownload(); setOpen(false); }}
-            className="tap-target flex items-center justify-center gap-2 py-2 border border-amber-600 bg-amber-950/40 text-amber-100 hover:bg-amber-900 text-xs tracking-wide transition-colors">
-            <Download size={12}/> Download
-          </button>
+        <div className="absolute right-0 mt-1 w-60 z-30 border border-zinc-700 bg-zinc-900 shadow-xl p-4">
+          <ExportBody format={format} setFormat={setFormat}
+            transparentBg={transparentBg} setTransparentBg={setTransparentBg}
+            onDownload={()=>{ onDownload(); setOpen(false); }}/>
         </div>}
+    </div>
+  );
+}
+
+// Export options body: format, resolution/vector notes, transparency, download.
+// Shared between the desktop header popover and the mobile Share tab.
+function ExportBody({format,setFormat,transparentBg,setTransparentBg,onDownload}) {
+  const formats = [['png','PNG'],['jpeg','JPEG'],['svg','SVG']];
+  return (
+    <div className="flex flex-col gap-3">
+      <Field label="Format">
+        <Segmented options={formats} value={format} onChange={setFormat}/>
+      </Field>
+      {(format==='png'||format==='jpeg') &&
+        <div className="text-[10px] text-zinc-600 leading-relaxed">Exports at your image's full resolution.</div>}
+      {(format==='png'||format==='svg') &&
+        <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+          <input type="checkbox" checked={transparentBg} onChange={e=>setTransparentBg(e.target.checked)} className="accent-amber-600"/>
+          <span>Transparent background</span>
+        </label>}
+      {format==='svg' &&
+        <div className="text-[10px] text-zinc-600 leading-relaxed">Scalable vector — ASCII exports as editable text, halftone as shapes. Atmosphere effects are omitted.</div>}
+      <button onClick={onDownload}
+        className="tap-target flex items-center justify-center gap-2 py-2 border border-amber-600 bg-amber-950/40 text-amber-100 hover:bg-amber-900 text-xs tracking-wide transition-colors">
+        <Download size={12}/> Download
+      </button>
     </div>
   );
 }
