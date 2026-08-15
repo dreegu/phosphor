@@ -1,5 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Eye, LayoutGrid, Grid3x3, Contrast, Palette, Radio, Save, Copy, Heart, Globe, Sparkles, SlidersHorizontal, Image as ImageIcon } from 'lucide-react';
+import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Eye, LayoutGrid, Grid3x3, Contrast, Palette, Radio, Save, Copy, Heart, Globe, Sparkles, SlidersHorizontal, Image as ImageIcon, Sun } from 'lucide-react';
+
+// Filter glyph (overlapping circles) for the Presets tab, à la Lightroom/Instagram.
+const FilterIcon = ({size=17}) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="9" cy="10" r="5.5"/>
+    <circle cx="15" cy="10" r="5.5"/>
+    <circle cx="12" cy="15.5" r="5.5"/>
+  </svg>
+);
 import LZString from 'lz-string';
 
 const GITHUB_URL = 'https://github.com/dreegu';   // profile
@@ -881,6 +890,8 @@ export default function Phosphor() {
   const imgRef = useRef(null);
   const outputCanvasRef = useRef(null);
   const ctrlRef = useRef(null);
+  // Each tab starts at the top — don't inherit the previous tab's scroll position.
+  useEffect(() => { if (ctrlRef.current) ctrlRef.current.scrollTop = 0; }, [activeTab]);
   const zoomAreaRef = useRef(null);
   const previewImgRef = useRef(null);
   // Nearest-neighbour (pixelated) scaling only looks right when the render is shown at or
@@ -897,6 +908,7 @@ export default function Phosphor() {
   // ── Hold to compare ──
   const [comparing, setComparing] = useState(false);
   const canCompareRef = useRef(false);
+  const lightboxRef = useRef(false);   // gestures are disabled while the lightbox is open
 
   // ── About ──
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -1183,6 +1195,7 @@ export default function Phosphor() {
     const rel = (cx, cy) => { const r = el.getBoundingClientRect(); return [cx - r.left - r.width/2, cy - r.top - r.height/2]; };
 
     const onWheel = (e) => {
+      if(lightboxRef.current) return;
       e.preventDefault();
       const {zoom:z} = viewRef.current;
       const [px, py] = rel(e.clientX, e.clientY);
@@ -1196,7 +1209,7 @@ export default function Phosphor() {
     // be interrupted by a re-render, which was silently cancelling every pan.
     const onDown = (e) => {
       if(e.pointerType==='touch') return;
-      if(e.button!==0) return;
+      if(e.button!==0 || lightboxRef.current) return;
       let prev=[e.clientX,e.clientY];
       el.style.cursor='grabbing';
       e.preventDefault();
@@ -1220,6 +1233,12 @@ export default function Phosphor() {
     const endCompare = () => { if (compareOn) { compareOn = false; setComparing(false); } };
 
     const onTouchMove = (e) => {
+      if(lightboxRef.current){   // lightbox: no pan/zoom, just keep a real drag from counting as a tap
+        e.preventDefault();
+        const t=e.touches[0];
+        if(t && tapInfo && Math.hypot(t.clientX-tapInfo.x, t.clientY-tapInfo.y)>10) tapInfo=null;
+        return;
+      }
       if(e.touches.length===1 && !pinch){
         const t=e.touches[0];
         if (compareOn) { e.preventDefault(); return; }              // holding original: swallow movement
@@ -1242,7 +1261,7 @@ export default function Phosphor() {
     const onTouchStart = (e) => {
       last = e.touches.length? [e.touches[0].clientX,e.touches[0].clientY] : null;
       // Only a tap on the bare photo toggles the lightbox — not on an overlay control (reset, %).
-      tapInfo = (e.touches.length===1 && !(e.target.closest && e.target.closest('button'))) ? {t:Date.now()} : null;
+      tapInfo = (e.touches.length===1 && !(e.target.closest && e.target.closest('button'))) ? {t:Date.now(), x:e.touches[0].clientX, y:e.touches[0].clientY} : null;
       clearPress(); pressStart = null;
       if (e.touches.length === 1 && canCompareRef.current) {
         pressStart = [e.touches[0].clientX, e.touches[0].clientY];
@@ -1389,6 +1408,7 @@ export default function Phosphor() {
 
   // Compare is only meaningful once processed output exists (read by the touch handlers).
   canCompareRef.current = !!outputUrl;
+  lightboxRef.current = lightbox;
   const showingOriginal = comparing && !!outputUrl;
 
   const handleDownload = async () => {
@@ -1489,7 +1509,7 @@ export default function Phosphor() {
   // ── Control panels, factored so the desktop sidebar (long scroll) and the mobile
   //    per-section tabs can compose the same pieces without duplicating markup. ──
   const presetsBody = (<>
-    <div className="sticky top-0 z-10 bg-zinc-950/95 backdrop-blur border-b border-zinc-800 px-4 py-3">
+    <div className="md:sticky md:top-0 z-10 bg-zinc-950/95 backdrop-blur border-b border-zinc-800 px-4 py-3">
       <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
     </div>
     <div className="anim-fadein flex flex-col">
@@ -1687,9 +1707,9 @@ export default function Phosphor() {
 
   // Icon tabs for the mobile layout. Section names live in each panel header, so icons carry the bar.
   const MOBILE_TABS = [
-    ['presets','Presets',LayoutGrid],
+    ['presets','Presets',FilterIcon],
     ['rendering','Rendering',Grid3x3],
-    ['appearance','Appearance',Contrast],
+    ['appearance','Appearance',Sun],
     ['color','Color',Palette],
     ['atmosphere','Atmosphere',Radio],
     ['share','Save',Save],
@@ -1697,8 +1717,9 @@ export default function Phosphor() {
   const mobileTabIds = MOBILE_TABS.map(t=>t[0]);
   const lb = lightbox && isNarrow;   // full-screen photo view (mobile only)
   // Size the mobile preview to the photo: tall enough to fill the width (landscape fills
-  // edge-to-edge), but capped at 42dvh so a tall/portrait photo never eats the editor.
-  const previewHeight = `clamp(28dvh, ${(100/imgAspect).toFixed(1)}vw, 42dvh)`;
+  // edge-to-edge), capped at ~54dvh so a tall photo leaves ~40% for the editor (60/40 split
+  // once the header is counted).
+  const previewHeight = `clamp(28dvh, ${(100/imgAspect).toFixed(1)}vw, 54dvh)`;
 
   return (
     <div className="h-[100dvh] flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
@@ -1739,13 +1760,13 @@ export default function Phosphor() {
 
       {/* HEADER */}
       <div className={`${lb?'hidden':'flex'} items-center justify-between px-3 sm:px-4 py-2.5 border-b border-zinc-800 shrink-0 gap-2`}>
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-4 sm:gap-6 md:gap-8 min-w-0">
+          <button onClick={()=>setAboutOpen(true)} title="About" className="flex items-center gap-2 min-w-0">
             <img src="/favicon.png" alt="Phosphor Studio" className="w-6 h-6 shrink-0 rounded-[3px]"/>
             <h1 className="hidden sm:block text-base whitespace-nowrap tracking-tight">
               <span className="text-amber-100">Phosphor</span> <span className="text-zinc-500">Studio</span>
             </h1>
-          </div>
+          </button>
           <div className="flex items-center gap-1">
             <button onClick={undo} disabled={!canUndo} title="undo (⌘Z)" aria-label="undo"
               className="tap-target flex items-center justify-center w-7 h-7 shrink-0 border border-zinc-700 enabled:hover:border-amber-600 text-zinc-500 enabled:hover:text-amber-300 disabled:opacity-30 disabled:cursor-default transition-colors">
@@ -1759,7 +1780,7 @@ export default function Phosphor() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button onClick={()=>setAboutOpen(true)} title="about" aria-label="about"
-            className="tap-target flex items-center justify-center w-7 h-7 border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300 transition-colors">
+            className="md:hidden tap-target flex items-center justify-center w-7 h-7 border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300 transition-colors">
             <Info size={13}/>
           </button>
           <label className="tap-target flex items-center gap-1.5 text-xs text-zinc-400 hover:text-amber-300 cursor-pointer border border-zinc-700 hover:border-amber-600 px-2.5 py-1.5 tracking-wide transition-colors">
@@ -1822,7 +1843,7 @@ export default function Phosphor() {
                 </button>
               </div>
               <a href="https://rodrigosilva.design" target="_blank" rel="noopener noreferrer"
-                className="hidden md:block absolute left-1/2 -translate-x-1/2 text-xs text-zinc-600 hover:text-amber-400 transition-colors">
+                className="hidden lg:block ml-auto text-xs text-zinc-600 hover:text-amber-400 transition-colors">
                 by rodrigosilva.design
               </a>
             </div>
@@ -1854,7 +1875,7 @@ export default function Phosphor() {
             )}
 
             <div ref={ctrlRef} className="ctrl flex-1 overflow-y-auto flex flex-col"
-              style={{paddingBottom:'0.5rem'}}>
+              style={{paddingBottom:'calc(0.5rem + env(safe-area-inset-bottom))'}}>
 
             {isNarrow ? (
               /* MOBILE: one section per tab */
@@ -1939,9 +1960,9 @@ function AboutModal({onClose}) {
     ['LinkedIn', LINKEDIN_URL, <LinkedinIcon/>],
   ].filter(s => s[1]);
   const steps = [
-    [<ImageIcon size={15}/>, 'Start with a photo', 'Upload your own or pick one of the built-in sample shots.'],
-    [<Sparkles size={15}/>, 'Choose a look', 'Browse presets inspired by films, games and real hardware — or hit a device to match its palette and pixel density.'],
-    [<SlidersHorizontal size={15}/>, 'Fine-tune the render', 'Dial in detail, dithering, colour, and CRT atmosphere — glow, scanlines, noise.'],
+    [<ImageIcon size={15}/>, 'Start with a photo', 'Upload your own photo or use the built-in sample.'],
+    [<Sparkles size={15}/>, 'Choose a look', 'Browse the curated selection of presets to give your photo a quick new look, or hit a device to match its palette and pixel density.'],
+    [<SlidersHorizontal size={15}/>, 'Fine-tune the render', 'Dial in the edit options for different rendering modes, tone and light controls, colour and atmosphere effects like glow, noise and scanlines.'],
     [<Download size={15}/>, 'Export full resolution', 'Download JPEG, PNG or SVG, or copy to clipboard. No watermark, no account.'],
   ];
   return (
@@ -1959,7 +1980,7 @@ function AboutModal({onClose}) {
           </button>
         </div>
 
-        <p className="text-xl text-amber-100 leading-snug">A lo-fi visual studio.</p>
+        <p className="text-base sm:text-xl text-amber-100 leading-snug">A lo-fi visual studio.</p>
         <p className="text-xs text-zinc-400 leading-relaxed">
           Convert photos into dithered, halftone, and ASCII retro-display art.
           Features CRT atmospheric effects and a curated collection of presets inspired by
@@ -1976,7 +1997,7 @@ function AboutModal({onClose}) {
           <div className="flex items-center gap-2">
             {socials.map(([label,href,icon]) => (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer" title={label} aria-label={label}
-                className="tap-target flex items-center justify-center w-9 h-9 rounded-full border border-zinc-800 text-zinc-400 hover:text-amber-300 hover:border-amber-700 transition-colors">
+                className="tap-target flex items-center justify-center w-9 h-9 border border-zinc-700 text-zinc-400 hover:text-amber-300 hover:border-amber-600 transition-colors">
                 {icon}
               </a>
             ))}
@@ -1988,7 +2009,7 @@ function AboutModal({onClose}) {
           <div className="text-[10px] tracking-[0.2em] text-zinc-600">HOW TO CREATE RETRO ART</div>
           {steps.map(([icon,title,desc]) => (
             <div key={title} className="flex gap-3">
-              <div className="mt-0.5 shrink-0 text-amber-400/80">{icon}</div>
+              <div className="mt-0.5 shrink-0 text-zinc-100">{icon}</div>
               <div>
                 <div className="text-sm text-zinc-200 leading-tight">{title}</div>
                 <div className="text-xs text-zinc-500 leading-relaxed mt-0.5">{desc}</div>

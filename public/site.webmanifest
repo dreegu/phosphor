@@ -4,6 +4,7 @@
   "description": "A lo-fi visual studio — turn photos into dithered, halftone, and ASCII retro-display art.",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0a1226",
   "theme_color": "#0a1226",
   "icons": [
