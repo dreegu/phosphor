@@ -1722,7 +1722,7 @@ export default function Phosphor() {
   const previewHeight = `clamp(28dvh, ${(100/imgAspect).toFixed(1)}vw, 54dvh)`;
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
+    <div className="fixed inset-0 flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
       style={{paddingTop:'env(safe-area-inset-top)',paddingLeft:'env(safe-area-inset-left)',paddingRight:'env(safe-area-inset-right)'}}>
       <style>{`
         input[type=range]{-webkit-appearance:none;appearance:none;height:2px;background:#3f3f46;width:100%;touch-action:none}
