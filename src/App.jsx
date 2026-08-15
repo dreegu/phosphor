@@ -1592,7 +1592,7 @@ export default function Phosphor() {
   );
 
   const appearancePanel = (
-    <Panel label="Appearance" action={appearanceDirty && <ResetButton onClick={resetAppearance} title="Reset appearance"/>}>
+    <Panel label="Light" action={appearanceDirty && <ResetButton onClick={resetAppearance} title="Reset light"/>}>
       <NumSlider label="Exposure"   value={exposure}   min={-100} max={100} step={1}    onChange={setExposure}/>
       <NumSlider label="Contrast"   value={contrast}   min={-100} max={100} step={1}    onChange={setContrast}/>
       <NumSlider label="Highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
@@ -1723,7 +1723,7 @@ export default function Phosphor() {
   const MOBILE_TABS = [
     ['presets','Presets',FilterIcon],
     ['rendering','Rendering',Grid3x3],
-    ['appearance','Appearance',Sun],
+    ['appearance','Light',Sun],   // internal key stays 'appearance'
     ['color','Color',Palette],
     ['atmosphere','Effects',Radio],   // internal key stays 'atmosphere'
     ['share','Save',Save],
