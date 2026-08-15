@@ -841,19 +841,23 @@ export default function Phosphor() {
   const [gamut, setGamut] = useState('full');             // adaptive colour constraint / device gamut
   const [showAllDevices, setShowAllDevices] = useState(false);   // Devices section: reveal beyond the first row set
   const [detail, setDetail] = useState(DEFAULT_DETAIL);   // unified 0-100, higher = more detail
+  // The load/upload pixelisation reveal animates THIS (render-only) — never the slider value or
+  // history — so it reads as a transition, not a user edit. null = render at the real detail.
+  const [revealDetail, setRevealDetail] = useState(null);
   const detailRef = useRef(DEFAULT_DETAIL); detailRef.current = detail;
   const sweepRef = useRef(0);
   const pendingSweepRef = useRef(false);   // holds the target detail to animate to after an upload decodes
-  // On upload, reveal the pixelisation by ramping detail 0 → the user's selected level.
+  // Reveal the pixelisation by ramping the RENDER detail 0 → target. Drives revealDetail only,
+  // so the slider stays put and nothing lands in history; clears to null (real detail) when done.
   const sweepDetail = useCallback((target) => {
     cancelAnimationFrame(sweepRef.current);
-    if (target <= 0) { setDetail(target); return; }
+    if (target <= 0) { setRevealDetail(null); return; }
     const dur = 850, start = performance.now();
-    setDetail(0);
+    setRevealDetail(0);
     const step = (now) => {
       const t = Math.min(1, (now - start) / dur);
       const e = 1 - Math.pow(1 - t, 3);   // easeOutCubic
-      setDetail(Math.round(e * target));
+      setRevealDetail(t < 1 ? Math.round(e * target) : null);
       if (t < 1) sweepRef.current = requestAnimationFrame(step);
     };
     sweepRef.current = requestAnimationFrame(step);
@@ -1019,7 +1023,7 @@ export default function Phosphor() {
     // Land chunky and remember where to ramp to; the splash-lift effect plays the reveal.
     // Non-device looks always reveal to the default detail — only devices carry their own.
     bootSweepRef.current = look.carriesDetail ? look.settings.detail : DEFAULT_DETAIL;
-    setDetail(0);
+    setRevealDetail(0);   // render chunky behind the splash; the slider stays at the real value
     if(img.fileName) setFileName(img.fileName);
     setZoom(1); setPan({x:0,y:0});
     setImageSrc(img.image);
@@ -1318,9 +1322,10 @@ export default function Phosphor() {
 
     let canvas;
     const tp=transparentBg;
-    if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,detailToSize('dither',detail)*scale),palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount,gamut});
-    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:Math.max(3,detailToSize('ascii',detail)*scale),getY,transparent:tp,invert:asciiInvert,cutout:asciiCutout,bold:asciiBold});
-    else canvas=renderHalftone({img,w,h,shape:htShape,dotSize:Math.max(0.8,detailToSize('halftone',detail)*scale),angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
+    const dv = revealDetail ?? detail;   // render-only reveal override; falls back to the slider value
+    if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,detailToSize('dither',dv)*scale),palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount,gamut});
+    else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:Math.max(3,detailToSize('ascii',dv)*scale),getY,transparent:tp,invert:asciiInvert,cutout:asciiCutout,bold:asciiBold});
+    else canvas=renderHalftone({img,w,h,shape:htShape,dotSize:Math.max(0.8,detailToSize('halftone',dv)*scale),angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
     if (!canvas) return null;
 
     const darkColor=mode==='dither'
@@ -1346,7 +1351,7 @@ export default function Phosphor() {
       ctx.putImageData(id,0,0);
     }
     return canvas;
-  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,transparentBg]);
+  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,revealDetail,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,transparentBg]);
 
   const process = useCallback(() => {
     const canvas = composeOutput(900);
@@ -1509,7 +1514,7 @@ export default function Phosphor() {
   // ── Control panels, factored so the desktop sidebar (long scroll) and the mobile
   //    per-section tabs can compose the same pieces without duplicating markup. ──
   const presetsBody = (<>
-    <div className="md:sticky md:top-0 z-10 bg-zinc-950/95 backdrop-blur border-b border-zinc-800 px-4 py-3">
+    <div className="sticky top-0 z-10 bg-zinc-950/70 backdrop-blur px-4 py-3">
       <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
     </div>
     <div className="anim-fadein flex flex-col">
@@ -1520,7 +1525,7 @@ export default function Phosphor() {
         const shown = isDevices && !showAllDevices ? looks.slice(0,6) : looks;
         const hidden = isDevices ? looks.length-6 : 0;
         return (
-        <Panel key={key} label={label}>
+        <Panel key={key} label={label} bare>
           {isDevices &&
             <p className="text-[11px] leading-relaxed text-zinc-500 -mt-1">
               Remaps photo's colors to device's real gamut and snaps Detail to its native pixel density.
@@ -1761,7 +1766,7 @@ export default function Phosphor() {
       `}</style>
 
       {/* HEADER */}
-      <div className={`${lb?'hidden':'flex'} items-center justify-between px-3 sm:px-4 py-2.5 border-b border-zinc-800 shrink-0 gap-2`}>
+      <div className={`${lb?'hidden':'flex'} items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2.5 border-b border-zinc-800 shrink-0 gap-2`}>
         <div className="flex items-center gap-4 sm:gap-6 md:gap-8 min-w-0">
           <button onClick={()=>setAboutOpen(true)} title="About Phosphor Studio"
             className="group flex items-center gap-2 min-w-0 cursor-pointer">
@@ -1782,11 +1787,8 @@ export default function Phosphor() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={()=>setAboutOpen(true)} title="about" aria-label="about"
-            className="md:hidden tap-target flex items-center justify-center w-7 h-7 border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300 transition-colors">
-            <Info size={13}/>
-          </button>
-          <label className="tap-target flex items-center gap-1.5 text-xs text-zinc-400 hover:text-amber-300 cursor-pointer border border-zinc-700 hover:border-amber-600 px-2.5 py-1.5 tracking-wide transition-colors">
+          <label title="upload" aria-label="upload"
+            className="tap-target flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1.5 text-xs text-zinc-400 hover:text-amber-300 cursor-pointer border border-zinc-700 hover:border-amber-600 tracking-wide transition-colors">
             <Upload size={12}/> <span className="hidden sm:inline">UPLOAD</span>
             <input type="file" accept="image/*" className="hidden" onChange={handleFile}/>
           </label>
@@ -2051,14 +2053,14 @@ function ResetButton({onClick,title}) {
   );
 }
 
-function Panel({label,children,action}) {
+function Panel({label,children,action,bare}) {
   return (
-    <div className="border-b border-zinc-800 px-4 py-4">
-      <div className="flex items-center justify-between mb-3 min-h-6">
+    <div className={`px-4 py-3 ${bare?'':'border-b border-zinc-800'}`}>
+      <div className="flex items-center justify-between mb-2 min-h-5">
         <div className="text-xs font-medium tracking-wide text-zinc-300">{label}</div>
         {action}
       </div>
-      <div className="flex flex-col gap-3">{children}</div>
+      <div className="flex flex-col gap-2.5">{children}</div>
     </div>
   );
 }
@@ -2070,7 +2072,7 @@ function NumSlider({label,value,min,max,step,onChange,hint,disabled}) {
   };
   return (
     <div className={disabled?'opacity-40':''}>
-      <div className="text-xs text-zinc-500 mb-1.5">{label}</div>
+      <div className="text-xs text-zinc-500 mb-0.5">{label}</div>
       <div className="flex items-center gap-2.5">
         {hint
           ? <span className="text-xs text-zinc-600 shrink-0 w-14">{hint}</span>
@@ -2088,7 +2090,7 @@ function NumSlider({label,value,min,max,step,onChange,hint,disabled}) {
 function Field({label,children}) {
   return (
     <div>
-      <div className="text-xs text-zinc-500 mb-1.5">{label}</div>
+      <div className="text-xs text-zinc-500 mb-1">{label}</div>
       {children}
     </div>
   );
@@ -2097,7 +2099,9 @@ function Field({label,children}) {
 // Custom dropdown for many-option selectors: filled box + value + chevron, popover list.
 function Dropdown({options,value,onChange,preview}) {
   const [open,setOpen] = useState(false);
+  const [menuStyle,setMenuStyle] = useState({});
   const ref = useRef(null);
+  const btnRef = useRef(null);
   const selRef = useRef(null);
   useEffect(() => {
     if(!open) return;
@@ -2105,14 +2109,23 @@ function Dropdown({options,value,onChange,preview}) {
     document.addEventListener('mousedown',onDoc);
     return () => document.removeEventListener('mousedown',onDoc);
   },[open]);
-  // Reveal the currently-selected item when the menu opens, instead of resetting to the top.
+  // Place the menu where it fits: flip above the button when there isn't room below, and
+  // cap its height to the available space so options never spill past the fold.
   useEffect(() => {
-    if(open) selRef.current?.scrollIntoView({block:'nearest'});
+    if(!open || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom - 10;
+    const above = r.top - 10;
+    const up = below < 200 && above > below;
+    setMenuStyle(up
+      ? {bottom:'100%', marginBottom:4, maxHeight:Math.max(120,Math.min(288,above))}
+      : {top:'100%', marginTop:4, maxHeight:Math.max(120,Math.min(288,below))});
+    selRef.current?.scrollIntoView({block:'nearest'});
   },[open]);
   const current = options.find(o=>o[0]===value);
   return (
     <div ref={ref} className="relative">
-      <button onClick={()=>setOpen(o=>!o)}
+      <button ref={btnRef} onClick={()=>setOpen(o=>!o)}
         className="tap-target w-full flex items-center justify-between gap-2 px-2.5 py-2 border border-zinc-700 text-xs text-zinc-200 hover:border-zinc-600 transition-colors">
         <span className="truncate">{current?current[1]:'—'}</span>
         <span className="flex items-center gap-1.5 shrink-0">
@@ -2121,7 +2134,7 @@ function Dropdown({options,value,onChange,preview}) {
         </span>
       </button>
       {open &&
-        <div className="absolute z-20 mt-1 left-0 right-0 max-h-64 overflow-y-auto border border-zinc-700 bg-zinc-900 shadow-xl">
+        <div style={menuStyle} className="absolute z-30 left-0 right-0 overflow-y-auto border border-zinc-700 bg-zinc-900 shadow-xl">
           {options.map(([v,l,desc])=>(
             <button key={v} ref={v===value?selRef:null} onClick={()=>{onChange(v); setOpen(false);}}
               className={`w-full text-left px-2.5 py-2 transition-colors ${v===value?'bg-amber-950/40':'hover:bg-zinc-800'}`}>
