@@ -814,6 +814,7 @@ export default function Phosphor() {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({x:0,y:0});
   const [lightbox, setLightbox] = useState(false);   // mobile: tap the image for a full-screen view
+  const [imgAspect, setImgAspect] = useState(1.5);   // natural w/h — drives the mobile preview height
   const viewRef = useRef({zoom:1, pan:{x:0,y:0}});
 
   const [mode, setMode] = useState('halftone');
@@ -1252,7 +1253,8 @@ export default function Phosphor() {
     };
     const onTouchStart = (e) => {
       last = e.touches.length? [e.touches[0].clientX,e.touches[0].clientY] : null;
-      tapInfo = e.touches.length===1 ? {t:Date.now()} : null;
+      // Only a tap on the bare photo toggles the lightbox — not on an overlay control (reset, %).
+      tapInfo = (e.touches.length===1 && !(e.target.closest && e.target.closest('button'))) ? {t:Date.now()} : null;
       clearPress(); pressStart = null;
       if (e.touches.length === 1 && canCompareRef.current) {
         pressStart = [e.touches[0].clientX, e.touches[0].clientY];
@@ -1358,6 +1360,7 @@ export default function Phosphor() {
     const img = new Image();
     img.onload = () => { if (!cancelled) {
       imgRef.current = img; setImgTick(t => t + 1);
+      if (img.naturalHeight) setImgAspect(img.naturalWidth / img.naturalHeight);
       if (pendingSweepRef.current !== false) { const tgt = pendingSweepRef.current; pendingSweepRef.current = false; sweepDetail(tgt); }
     } };
     img.src = imageSrc;
@@ -1514,7 +1517,7 @@ export default function Phosphor() {
             <p className="text-[11px] leading-relaxed text-zinc-500 -mt-1">
               Remaps photo's colors to device's real gamut and snaps Detail to its native pixel density.
             </p>}
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-4 md:grid-cols-2 gap-1.5">
             {shown.map(p=>{
               const on=activeLook===p.name;
               return (
@@ -1525,7 +1528,7 @@ export default function Phosphor() {
                     ? <img src={lookThumbs[p.name]} alt="" className="w-full h-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
                     : <div className="w-full h-full animate-pulse bg-zinc-800"/>}
                 </div>
-                <div className={`text-[11px] leading-tight py-1.5 px-1 text-center ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
+                <div className={`text-[9px] md:text-[11px] leading-tight py-1.5 px-0.5 text-center ${on?'text-amber-100 bg-amber-950/40':'text-zinc-400 group-hover:text-zinc-200'}`}>{p.name}</div>
               </button>
             );})}
           </div>
@@ -1705,10 +1708,12 @@ export default function Phosphor() {
   ];
   const mobileTabIds = MOBILE_TABS.map(t=>t[0]);
   const lb = lightbox && isNarrow;   // full-screen photo view (mobile only)
+  // Give portrait photos more of the mobile viewport; keep landscape compact (it fills width anyway).
+  const previewH = imgAspect < 0.9 ? 'h-[46dvh]' : imgAspect > 1.3 ? 'h-[30dvh]' : 'h-[38dvh]';
 
   return (
     <div className="h-[100dvh] flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
-      style={{paddingTop:'env(safe-area-inset-top)',paddingLeft:'env(safe-area-inset-left)',paddingRight:'env(safe-area-inset-right)',paddingBottom:'env(safe-area-inset-bottom)'}}>
+      style={{paddingTop:'env(safe-area-inset-top)',paddingLeft:'env(safe-area-inset-left)',paddingRight:'env(safe-area-inset-right)'}}>
       <style>{`
         input[type=range]{-webkit-appearance:none;height:2px;background:#3f3f46;width:100%}
         input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;background:#f4e4c1;border-radius:0;cursor:pointer;margin-top:-4px}
@@ -1719,6 +1724,7 @@ export default function Phosphor() {
         .btn{padding:5px 0;font-size:11px;border:1px solid #3f3f46;color:#71717a;letter-spacing:.05em;cursor:pointer;text-align:center;background:transparent}
         .btn:hover{color:#d4d4d8;border-color:#71717a}
         .btn.on{border-color:#b45309;color:#fef3c7;background:#1c0a00}
+        .ctrl > div:last-child > div:last-child{border-bottom-width:0}
         .ctrl::-webkit-scrollbar{width:3px}
         .ctrl::-webkit-scrollbar-thumb{background:#3f3f46}
         @keyframes fadein{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
@@ -1777,7 +1783,7 @@ export default function Phosphor() {
         <div className="flex flex-1 overflow-hidden flex-col md:flex-row" onDrop={handleDrop} onDragOver={e=>e.preventDefault()}>
 
           {/* IMAGE */}
-          <div className={`relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 md:h-auto md:flex-1 ${lb?'flex-1':'h-[32dvh]'}`}>
+          <div className={`relative bg-zinc-900 flex flex-col overflow-hidden shrink-0 md:h-auto md:flex-1 ${lb?'flex-1':previewH}`}>
             <div ref={zoomAreaRef} onContextMenu={e=>e.preventDefault()}
               className="flex-1 overflow-hidden relative touch-none select-none" style={{cursor:'grab'}}>
               <div className="w-full h-full flex items-center justify-center" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
@@ -1852,7 +1858,8 @@ export default function Phosphor() {
               </div>
             )}
 
-            <div ref={ctrlRef} className="ctrl flex-1 overflow-y-auto flex flex-col">
+            <div ref={ctrlRef} className="ctrl flex-1 overflow-y-auto flex flex-col"
+              style={{paddingBottom:'calc(0.5rem + env(safe-area-inset-bottom))'}}>
 
             {isNarrow ? (
               /* MOBILE: one section per tab */
@@ -1882,8 +1889,6 @@ export default function Phosphor() {
                   {shareLinkPanel}
                 </div>
             )}
-
-            <div className="pb-2"/>
             </div>
           </div>
         </div>
@@ -1945,11 +1950,10 @@ function AboutModal({onClose}) {
     [<Download size={15}/>, 'Export full resolution', 'Download JPEG, PNG or SVG, or copy to clipboard. No watermark, no account.'],
   ];
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70" onClick={onClose}
-      style={{paddingTop:'env(safe-area-inset-top)'}}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={onClose}
+      style={{paddingTop:'calc(1rem + env(safe-area-inset-top))',paddingBottom:'calc(1rem + env(safe-area-inset-bottom))'}}>
       <div onClick={e=>e.stopPropagation()}
-        className="anim-fadein w-full h-[92dvh] sm:h-auto sm:w-[440px] sm:max-h-[85vh] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-t-2xl sm:rounded-lg p-6 flex flex-col gap-5"
-        style={{paddingBottom:'calc(1.5rem + env(safe-area-inset-bottom))'}}>
+        className="anim-fadein w-full sm:w-[440px] max-h-full overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-2">
             <img src="/favicon.png" alt="" className="w-7 h-7 shrink-0 rounded-[3px]"/>
