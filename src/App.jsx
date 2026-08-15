@@ -139,7 +139,7 @@ const PALETTE_PRESETS = {
 };
 
 // Baseline every look resets to, so a preset only declares what it changes.
-const LOOK_BASE = { contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, asciiInvert:false, asciiCutout:0, asciiBold:true, dcolor:'palette', adaptiveCount:16, gamut:'full' };
+const LOOK_BASE = { exposure:0, contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, asciiInvert:false, asciiCutout:0, asciiBold:true, dcolor:'palette', adaptiveCount:16, gamut:'full' };
 
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
@@ -681,9 +681,9 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
 
 // Build the tone-mapping function from a settings object (mirrors process()).
 function makeGetY(s){
-  const cf=(100+(s.contrast||0))/100, mid=s.midtones||1, hi=s.highlights||1, sh=s.shadows||1;
+  const ex=1+(s.exposure||0)/100, cf=(100+(s.contrast||0))/100, mid=s.midtones||1, hi=s.highlights||1, sh=s.shadows||1;
   return (r,g,b)=>{
-    let y=luminance([r,g,b]);
+    let y=luminance([r,g,b])*ex;
     y=(y-0.5)*cf+0.5;
     y=Math.pow(Math.max(0,Math.min(1,y)),1/mid);
     if(y>0.5) y=0.5+(y-0.5)*hi; else y=0.5-(0.5-y)*sh;
@@ -875,6 +875,7 @@ export default function Phosphor() {
   const [htInk, setHtInk] = useState('#2a2420');
   const [htPaper, setHtPaper] = useState('#f2ede4');
 
+  const [exposure, setExposure] = useState(0);
   const [contrast, setContrast] = useState(0);
   const [midtones, setMidtones] = useState(1);
   const [highlights, setHighlights] = useState(1);
@@ -1001,6 +1002,7 @@ export default function Phosphor() {
     if(s.htAngle!==undefined) setHtAngle(s.htAngle);
     if(s.htInk!==undefined) setHtInk(s.htInk);
     if(s.htPaper!==undefined) setHtPaper(s.htPaper);
+    if(s.exposure!==undefined) setExposure(s.exposure);
     if(s.contrast!==undefined) setContrast(s.contrast);
     if(s.midtones!==undefined) setMidtones(s.midtones);
     if(s.highlights!==undefined) setHighlights(s.highlights);
@@ -1034,8 +1036,8 @@ export default function Phosphor() {
     palette: palette.map(({color,anchor})=>({color,anchor})),
     asciiRamp, asciiFg, asciiBg, asciiInvert, asciiCutout, asciiBold,
     htShape, htAngle, htInk, htPaper,
-    contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
-  }), [mode,algo,dcolor,adaptiveCount,gamut,detail,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
+    exposure, contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
+  }), [mode,algo,dcolor,adaptiveCount,gamut,detail,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,exposure,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
 
   // ── Undo / redo ───────────────────────────────────────────────────────────
   // History holds serialized settings only (never the image), so replacing the image
@@ -1274,6 +1276,12 @@ export default function Phosphor() {
     };
     const onTouchEnd = (e) => {
       if(e.touches.length<2) pinch=null;
+      if(e.touches.length===1){
+        // A finger lifted mid-pinch: reseat the pan origin onto the finger that's still down,
+        // otherwise the next move is measured from a stale point and the image snaps sideways.
+        last=[e.touches[0].clientX, e.touches[0].clientY];
+        tapInfo=null;
+      }
       if(e.touches.length===0){
         // A quick, still, single-finger tap (not a hold, pan or pinch) toggles the mobile
         // full-screen lightbox and recentres the photo.
@@ -1311,9 +1319,9 @@ export default function Phosphor() {
     w=Math.max(1,Math.round(w*sc)); h=Math.max(1,Math.round(h*sc));
     const scale=Math.max(w,h)/900;
 
-    const cf=(100+contrast)/100;
+    const ex=1+exposure/100, cf=(100+contrast)/100;
     const getY=(r,g,b)=>{
-      let y=luminance([r,g,b]);
+      let y=luminance([r,g,b])*ex;
       y=(y-0.5)*cf+0.5;
       y=Math.pow(Math.max(0,Math.min(1,y)),1/midtones);
       if(y>0.5) y=0.5+(y-0.5)*highlights; else y=0.5-(0.5-y)*shadows;
@@ -1351,7 +1359,7 @@ export default function Phosphor() {
       ctx.putImageData(id,0,0);
     }
     return canvas;
-  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,revealDetail,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,transparentBg]);
+  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,revealDetail,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,exposure,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,transparentBg]);
 
   const process = useCallback(() => {
     const canvas = composeOutput(900);
@@ -1506,8 +1514,8 @@ export default function Phosphor() {
   const displayPalette = [...palette].sort((a,b)=>a.anchor-b.anchor);
 
   // Reset-to-default affordances: only surfaced once a value has moved off its baseline.
-  const appearanceDirty = contrast!==0 || midtones!==1 || highlights!==1 || shadows!==1;
-  const resetAppearance = () => { setContrast(0); setMidtones(1); setHighlights(1); setShadows(1); };
+  const appearanceDirty = exposure!==0 || contrast!==0 || midtones!==1 || highlights!==1 || shadows!==1;
+  const resetAppearance = () => { setExposure(0); setContrast(0); setMidtones(1); setHighlights(1); setShadows(1); };
   const atmosphereDirty = phosphorGlow!==0 || luminanceLift!==0 || scanlines!==0 || noise!==0 || chromaShift!==0;
   const resetAtmosphere = () => { setPhosphorGlow(0); setLuminanceLift(0); setScanlines(0); setNoise(0); setChromaShift(0); };
 
@@ -1585,9 +1593,10 @@ export default function Phosphor() {
 
   const appearancePanel = (
     <Panel label="Appearance" action={appearanceDirty && <ResetButton onClick={resetAppearance} title="Reset appearance"/>}>
+      <NumSlider label="Exposure"   value={exposure}   min={-100} max={100} step={1}    onChange={setExposure}/>
       <NumSlider label="Contrast"   value={contrast}   min={-100} max={100} step={1}    onChange={setContrast}/>
-      <NumSlider label="Midtones"   value={midtones}   min={0.3}  max={2.5} step={0.05} onChange={setMidtones}/>
       <NumSlider label="Highlights" value={highlights} min={0.3}  max={2.5} step={0.05} onChange={setHighlights}/>
+      <NumSlider label="Midtones"   value={midtones}   min={0.3}  max={2.5} step={0.05} onChange={setMidtones}/>
       <NumSlider label="Shadows"    value={shadows}    min={0.3}  max={2.5} step={0.05} onChange={setShadows}/>
     </Panel>
   );
@@ -1682,7 +1691,7 @@ export default function Phosphor() {
   );
 
   const atmospherePanel = (
-    <Panel label="Atmosphere" action={atmosphereDirty && <ResetButton onClick={resetAtmosphere} title="Reset atmosphere"/>}>
+    <Panel label="Effects" action={atmosphereDirty && <ResetButton onClick={resetAtmosphere} title="Reset effects"/>}>
       <NumSlider label="Phosphor glow"  value={phosphorGlow}  min={0} max={100} step={1} onChange={setPhosphorGlow}/>
       <NumSlider label="Luminance lift" value={luminanceLift} min={0} max={100} step={1} onChange={setLuminanceLift}/>
       <NumSlider label="Scanlines" value={scanlines} min={0} max={100} step={1} onChange={setScanlines}/>
@@ -1716,15 +1725,15 @@ export default function Phosphor() {
     ['rendering','Rendering',Grid3x3],
     ['appearance','Appearance',Sun],
     ['color','Color',Palette],
-    ['atmosphere','Atmosphere',Radio],
+    ['atmosphere','Effects',Radio],   // internal key stays 'atmosphere'
     ['share','Save',Save],
   ];
   const mobileTabIds = MOBILE_TABS.map(t=>t[0]);
   const lb = lightbox && isNarrow;   // full-screen photo view (mobile only)
-  // Size the mobile preview to the photo: tall enough to fill the width (landscape fills
-  // edge-to-edge), capped at ~54dvh so a tall photo leaves ~40% for the editor (60/40 split
-  // once the header is counted).
-  const previewHeight = `clamp(28dvh, ${(100/imgAspect).toFixed(1)}vw, 54dvh)`;
+  // Size the mobile preview to the photo — enough to fill the width — plus a slice of
+  // breathing room (the +7dvh) so a landscape shot isn't jammed against the bar and tabs.
+  // Clamped 34–54dvh so it never starves the editor.
+  const previewHeight = `clamp(34dvh, calc(${(100/imgAspect).toFixed(1)}vw + 7dvh), 54dvh)`;
 
   return (
     <div className="fixed inset-0 flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
@@ -1766,7 +1775,7 @@ export default function Phosphor() {
       `}</style>
 
       {/* HEADER */}
-      <div className={`${lb?'hidden':'flex'} items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2.5 border-b border-zinc-800 shrink-0 gap-2`}>
+      <div className={`${lb?'hidden':'flex'} items-center justify-between px-2 sm:px-4 py-1 sm:py-2.5 border-b border-zinc-800 shrink-0 gap-2`}>
         <div className="flex items-center gap-4 sm:gap-6 md:gap-8 min-w-0">
           <button onClick={()=>setAboutOpen(true)} title="About Phosphor Studio"
             className="group flex items-center gap-2 min-w-0 cursor-pointer">
@@ -1777,19 +1786,19 @@ export default function Phosphor() {
           </button>
           <div className="flex items-center gap-1">
             <button onClick={undo} disabled={!canUndo} title="undo (⌘Z)" aria-label="undo"
-              className="tap-target flex items-center justify-center w-7 h-7 shrink-0 border border-zinc-700 enabled:hover:border-amber-600 text-zinc-500 enabled:hover:text-amber-300 disabled:opacity-30 disabled:cursor-default transition-colors">
-              <Undo2 size={13}/>
+              className="tap-target flex items-center justify-center w-7 h-7 shrink-0 md:border md:border-zinc-700 text-zinc-500 enabled:hover:text-amber-300 md:enabled:hover:border-amber-600 disabled:opacity-30 disabled:cursor-default transition-colors">
+              <Undo2 size={14}/>
             </button>
             <button onClick={redo} disabled={!canRedo} title="redo (⌘⇧Z)" aria-label="redo"
-              className="tap-target flex items-center justify-center w-7 h-7 shrink-0 border border-zinc-700 enabled:hover:border-amber-600 text-zinc-500 enabled:hover:text-amber-300 disabled:opacity-30 disabled:cursor-default transition-colors">
-              <Redo2 size={13}/>
+              className="tap-target flex items-center justify-center w-7 h-7 shrink-0 md:border md:border-zinc-700 text-zinc-500 enabled:hover:text-amber-300 md:enabled:hover:border-amber-600 disabled:opacity-30 disabled:cursor-default transition-colors">
+              <Redo2 size={14}/>
             </button>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <label title="upload" aria-label="upload"
-            className="tap-target flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1.5 text-xs text-zinc-400 hover:text-amber-300 cursor-pointer border border-zinc-700 hover:border-amber-600 tracking-wide transition-colors">
-            <Upload size={12}/> <span className="hidden sm:inline">UPLOAD</span>
+            className="tap-target flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1.5 text-xs text-zinc-400 hover:text-amber-300 cursor-pointer md:border md:border-zinc-700 md:hover:border-amber-600 tracking-wide transition-colors">
+            <Upload size={14} className="sm:w-3 sm:h-3"/> <span className="hidden sm:inline">UPLOAD</span>
             <input type="file" accept="image/*" className="hidden" onChange={handleFile}/>
           </label>
           <div className="hidden md:block">
@@ -2211,7 +2220,7 @@ function ExportBody({format,setFormat,transparentBg,setTransparentBg,onDownload,
           <span>Transparent background</span>
         </label>}
       {format==='svg' &&
-        <div className="text-[10px] text-zinc-600 leading-relaxed">Scalable vector — ASCII exports as editable text, halftone as shapes. Atmosphere effects are omitted.</div>}
+        <div className="text-[10px] text-zinc-600 leading-relaxed">Scalable vector — ASCII exports as editable text, halftone as shapes. Effects are omitted.</div>}
       <button onClick={onDownload}
         className="tap-target flex items-center justify-center gap-2 py-2 border border-amber-600 bg-amber-950/40 text-amber-100 hover:bg-amber-900 text-xs tracking-wide transition-colors">
         <Download size={12}/> Download
