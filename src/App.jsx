@@ -815,7 +815,6 @@ export default function Phosphor() {
   const [pan, setPan] = useState({x:0,y:0});
   const [lightbox, setLightbox] = useState(false);   // mobile: tap the image for a full-screen view
   const [imgAspect, setImgAspect] = useState(1.5);   // natural w/h — drives the mobile preview height
-  const [snap, setSnap] = useState(false);           // animate the transform only when snapping back after a gesture
   const viewRef = useRef({zoom:1, pan:{x:0,y:0}});
 
   const [mode, setMode] = useState('halftone');
@@ -1141,18 +1140,6 @@ export default function Phosphor() {
 
   const clampZoom = z => Math.max(0.25, Math.min(8, z));
   const resetView = () => { setZoom(1); setPan({x:0,y:0}); };
-  // Keep the photo pinned to the viewport edges: never drag it so far that empty space
-  // shows past a border. On the axis where the (scaled) image is smaller than the pane it
-  // stays centred (bound 0); on the larger axis you can pan within the overflow only.
-  const clampPan = (p, z) => {
-    const el = zoomAreaRef.current, im = previewImgRef.current;
-    if (!el || !im || !im.naturalWidth) return p;
-    const cw = el.clientWidth, ch = el.clientHeight;
-    const fit = Math.min(cw / im.naturalWidth, ch / im.naturalHeight);   // object-contain fit
-    const mx = Math.max(0, (im.naturalWidth * fit * z - cw) / 2);
-    const my = Math.max(0, (im.naturalHeight * fit * z - ch) / 2);
-    return { x: Math.max(-mx, Math.min(mx, p.x)), y: Math.max(-my, Math.min(my, p.y)) };
-  };
 
   // Below md (768px) we swap the two-tab sidebar for a per-section tabbed layout.
   const [isNarrow, setIsNarrow] = useState(() =>
@@ -1181,16 +1168,13 @@ export default function Phosphor() {
     return () => ro.disconnect();
   }, [checkSmooth, outputUrl, imageSrc]);
   // Zoom to a target level while keeping the point (px,py) — measured from the viewport centre — fixed.
-  const zoomAt = (target, px, py, doClamp=true) => {
+  const zoomAt = (target, px, py) => {
     const {zoom:z, pan:p} = viewRef.current;
     const nz = clampZoom(target);
     const lx = (px - p.x)/z, ly = (py - p.y)/z;
-    const np = { x: px - nz*lx, y: py - nz*ly };
     setZoom(nz);
-    setPan(doClamp ? clampPan(np, nz) : np);
+    setPan({ x: px - nz*lx, y: py - nz*ly });
   };
-  // Snap the photo back inside its bounds — called when a drag/pinch ends.
-  const settlePan = () => { setSnap(true); setPan(p => clampPan(p, viewRef.current.zoom)); };
 
   // Pan by dragging; zoom to the cursor via wheel/trackpad-pinch; zoom to the midpoint via touch pinch.
   useEffect(() => {
@@ -1214,16 +1198,16 @@ export default function Phosphor() {
       if(e.pointerType==='touch') return;
       if(e.button!==0) return;
       let prev=[e.clientX,e.clientY];
-      el.style.cursor='grabbing'; setSnap(false);
+      el.style.cursor='grabbing';
       e.preventDefault();
       const move=(ev)=>{
         // Compute the delta now and update `prev` before scheduling state — the setPan
         // updater runs lazily at render time, so it must close over the numbers, not `prev`.
         const dx=ev.clientX-prev[0], dy=ev.clientY-prev[1];
         prev=[ev.clientX,ev.clientY];
-        setPan(p=>({x:p.x+dx, y:p.y+dy}));   // free while dragging; snaps back on release
+        setPan(p=>({x:p.x+dx, y:p.y+dy}));
       };
-      const up=()=>{ el.style.cursor='grab'; settlePan(); window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',up); };
+      const up=()=>{ el.style.cursor='grab'; window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',up); };
       window.addEventListener('pointermove',move);
       window.addEventListener('pointerup',up);
     };
@@ -1243,28 +1227,19 @@ export default function Phosphor() {
           if (pressTimer) { e.preventDefault(); return; }           // within threshold, still deciding
         } else { clearPress(); }                                    // moved → it's a pan
         e.preventDefault();
-        if(last){ const dx=t.clientX-last[0], dy=t.clientY-last[1]; if(Math.abs(dx)+Math.abs(dy)>2){ tapInfo=null; setSnap(false); } setPan(p=>({x:p.x+dx, y:p.y+dy})); }
+        if(last){ const dx=t.clientX-last[0], dy=t.clientY-last[1]; if(Math.abs(dx)+Math.abs(dy)>2) tapInfo=null; setPan(p=>({x:p.x+dx, y:p.y+dy})); }
         last=[t.clientX,t.clientY];
       } else if(e.touches.length===2){
         e.preventDefault();
-        tapInfo=null; clearPress(); endCompare(); setSnap(false);
+        tapInfo=null; clearPress(); endCompare();
         const [a,b]=e.touches;
         const dist=Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
         const [mx,my]=rel((a.clientX+b.clientX)/2, (a.clientY+b.clientY)/2);
-        // Anchor the content under the previous midpoint to the new midpoint: pans with the
-        // fingers AND zooms with the spread, in one transform, unclamped until release.
-        if(pinch){
-          const {zoom:z, pan:p}=viewRef.current;
-          const nz=clampZoom(z*(dist/pinch.dist));
-          const [pmx,pmy]=pinch.mid;
-          const lx=(pmx-p.x)/z, ly=(pmy-p.y)/z;
-          setZoom(nz); setPan({x:mx-nz*lx, y:my-nz*ly});
-        }
-        pinch={dist, mid:[mx,my]};
+        if(pinch){ zoomAt(viewRef.current.zoom*(dist/pinch.dist), mx, my); }
+        pinch={dist};
       }
     };
     const onTouchStart = (e) => {
-      setSnap(false);
       last = e.touches.length? [e.touches[0].clientX,e.touches[0].clientY] : null;
       // Only a tap on the bare photo toggles the lightbox — not on an overlay control (reset, %).
       tapInfo = (e.touches.length===1 && !(e.target.closest && e.target.closest('button'))) ? {t:Date.now()} : null;
@@ -1281,8 +1256,6 @@ export default function Phosphor() {
         // full-screen lightbox and recentres the photo.
         if(tapInfo && !compareOn && Date.now()-tapInfo.t < 250 && window.innerWidth < 768){
           setZoom(1); setPan({x:0,y:0}); setLightbox(v=>!v);
-        } else {
-          settlePan();   // snap the photo back inside its bounds
         }
         last=null; clearPress(); endCompare(); pressStart=null; tapInfo=null;
       }
@@ -1723,9 +1696,9 @@ export default function Phosphor() {
   ];
   const mobileTabIds = MOBILE_TABS.map(t=>t[0]);
   const lb = lightbox && isNarrow;   // full-screen photo view (mobile only)
-  // Size the mobile preview to the photo: exactly tall enough to fill the width (no wasted
-  // letterbox on landscape), growing for taller shots, clamped so it never starves the editor.
-  const previewHeight = `clamp(30dvh, ${(100/imgAspect).toFixed(1)}vw, 64dvh)`;
+  // Size the mobile preview to the photo: tall enough to fill the width (landscape fills
+  // edge-to-edge), but capped at 42dvh so a tall/portrait photo never eats the editor.
+  const previewHeight = `clamp(28dvh, ${(100/imgAspect).toFixed(1)}vw, 42dvh)`;
 
   return (
     <div className="h-[100dvh] flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
@@ -1808,7 +1781,7 @@ export default function Phosphor() {
             style={(!lb && isNarrow) ? {height:previewHeight} : undefined}>
             <div ref={zoomAreaRef} onContextMenu={e=>e.preventDefault()}
               className="flex-1 overflow-hidden relative touch-none select-none" style={{cursor:'grab'}}>
-              <div className="w-full h-full flex items-center justify-center" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center',transition:snap?'transform 0.2s ease-out':'none'}}>
+              <div className="w-full h-full flex items-center justify-center" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`,transformOrigin:'center center'}}>
                 <img ref={previewImgRef} onLoad={checkSmooth} src={showingOriginal ? imageSrc : (outputUrl||imageSrc)} alt="preview" draggable={false}
                   onContextMenu={e=>e.preventDefault()}
                   className={`w-full h-full object-contain block ${transparentBg&&!showingOriginal?'checker':''}`}
@@ -1881,7 +1854,7 @@ export default function Phosphor() {
             )}
 
             <div ref={ctrlRef} className="ctrl flex-1 overflow-y-auto flex flex-col"
-              style={{paddingBottom:'calc(0.5rem + env(safe-area-inset-bottom))'}}>
+              style={{paddingBottom:'0.5rem'}}>
 
             {isNarrow ? (
               /* MOBILE: one section per tab */
