@@ -1735,6 +1735,8 @@ export default function Phosphor() {
         .btn:hover{color:#d4d4d8;border-color:#71717a}
         .btn.on{border-color:#b45309;color:#fef3c7;background:#1c0a00}
         .ctrl > div:last-child > div:last-child{border-bottom-width:0}
+        .rotate-lock{display:none}
+        @media (orientation:landscape) and (max-height:450px){ .rotate-lock{display:flex} }
         .ctrl::-webkit-scrollbar{width:3px}
         .ctrl::-webkit-scrollbar-thumb{background:#3f3f46}
         @keyframes fadein{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
@@ -1761,10 +1763,11 @@ export default function Phosphor() {
       {/* HEADER */}
       <div className={`${lb?'hidden':'flex'} items-center justify-between px-3 sm:px-4 py-2.5 border-b border-zinc-800 shrink-0 gap-2`}>
         <div className="flex items-center gap-4 sm:gap-6 md:gap-8 min-w-0">
-          <button onClick={()=>setAboutOpen(true)} title="About" className="flex items-center gap-2 min-w-0">
-            <img src="/favicon.png" alt="Phosphor Studio" className="w-6 h-6 shrink-0 rounded-[3px]"/>
+          <button onClick={()=>setAboutOpen(true)} title="About Phosphor Studio"
+            className="group flex items-center gap-2 min-w-0 cursor-pointer">
+            <img src="/favicon.png" alt="Phosphor Studio" className="w-6 h-6 shrink-0 rounded-[3px] transition-opacity group-hover:opacity-80"/>
             <h1 className="hidden sm:block text-base whitespace-nowrap tracking-tight">
-              <span className="text-amber-100">Phosphor</span> <span className="text-zinc-500">Studio</span>
+              <span className="text-amber-100 group-hover:underline decoration-amber-100/40 underline-offset-4">Phosphor</span> <span className="text-zinc-500 group-hover:text-zinc-300 transition-colors">Studio</span>
             </h1>
           </button>
           <div className="flex items-center gap-1">
@@ -1911,6 +1914,14 @@ export default function Phosphor() {
 
       {aboutOpen && <AboutModal onClose={()=>setAboutOpen(false)}/>}
       {booting && <Splash hiding={bootHiding}/>}
+
+      {/* Phones only: this is a portrait experience. Manifest orientation covers installed
+          PWAs where supported (Android, newer iOS); this covers everything else. */}
+      <div className="rotate-lock fixed inset-0 z-[60] flex-col items-center justify-center gap-4 bg-zinc-950 text-center px-10">
+        <RotateCcw size={30} className="text-amber-400"/>
+        <div className="text-sm text-zinc-300">Rotate your device to portrait</div>
+        <div className="text-xs text-zinc-600">Phosphor Studio is designed for vertical screens.</div>
+      </div>
     </div>
   );
 }
