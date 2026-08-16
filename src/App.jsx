@@ -139,7 +139,7 @@ const PALETTE_PRESETS = {
 };
 
 // Baseline every look resets to, so a preset only declares what it changes.
-const LOOK_BASE = { exposure:0, contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, phosphorGrid:0, saturation:100, ditherAmount:100, asciiInvert:false, asciiCutout:0, asciiBold:true, dcolor:'palette', adaptiveCount:16, gamut:'full' };
+const LOOK_BASE = { exposure:0, contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, phosphorGrid:0, saturation:100, ditherAmount:100, asciiInvert:false, asciiCutout:0, asciiBold:false, dcolor:'palette', adaptiveCount:16, gamut:'full' };
 
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
@@ -680,11 +680,11 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
     ctx.putImageData(out,0,0);
   }
   if(phosphorGrid>0){
-    // RGB aperture grille: vertical R/G/B subpixel stripes. Off-channels darken, the lit one
-    // lifts a touch to hold brightness. Stripe width scales with the render so triads stay
-    // visible from preview to full-res export.
-    const s=phosphorGrid/100, cell=Math.max(1,Math.round(Math.min(w,h)/320));
-    const dim=1-s*0.55, boost=1+s*0.22;
+    // RGB aperture grille: soft vertical R/G/B stripes. Triads are a few px wide (coarser than
+    // the dither, so the two don't interfere into colour grain) and the tint is gentle so it
+    // reads as a screen, not noise. Width scales with the render for parity on export.
+    const s=phosphorGrid/100, cell=Math.max(2,Math.round(Math.min(w,h)/200));
+    const dim=1-s*0.38, boost=1+s*0.16;
     const img=ctx.getImageData(0,0,w,h); const d=img.data;
     for(let y=0;y<h;y++){ for(let x=0;x<w;x++){
       const phase=Math.floor(x/cell)%3, i=(y*w+x)*4;
@@ -885,7 +885,7 @@ export default function Phosphor() {
   const [asciiBg, setAsciiBg] = useState('#000000');
   const [asciiInvert, setAsciiInvert] = useState(false);
   const [asciiCutout, setAsciiCutout] = useState(0);
-  const [asciiBold, setAsciiBold] = useState(true);
+  const [asciiBold, setAsciiBold] = useState(false);
 
   const [htShape, setHtShape] = useState('circle');
   const [htAngle, setHtAngle] = useState(45);
@@ -1216,6 +1216,33 @@ export default function Phosphor() {
     setZoom(nz);
     setPan({ x: px - nz*lx, y: py - nz*ly });
   };
+
+  // Desktop keyboard shortcuts: +/= zoom in, - zoom out, 0 fit, Space (held) shows the original.
+  useEffect(() => {
+    if (isNarrow) return;
+    const typing = () => {
+      const el = document.activeElement;
+      return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    };
+    const down = e => {
+      if (e.metaKey || e.ctrlKey || e.altKey || typing()) return;
+      if (e.code === 'Space') {
+        e.preventDefault();               // stop the page from scrolling
+        if (outputUrl && !e.repeat) setComparing(true);
+        return;
+      }
+      switch (e.key) {
+        case '+': case '=': e.preventDefault(); zoomAt(viewRef.current.zoom+0.25,0,0); break;
+        case '-': case '_': e.preventDefault(); zoomAt(viewRef.current.zoom-0.25,0,0); break;
+        case '0': e.preventDefault(); resetView(); break;
+        default: break;
+      }
+    };
+    const up = e => { if (e.code === 'Space') setComparing(false); };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+  }, [isNarrow, outputUrl]);
 
   // Pan by dragging; zoom to the cursor via wheel/trackpad-pinch; zoom to the midpoint via touch pinch.
   useEffect(() => {
@@ -1766,7 +1793,7 @@ export default function Phosphor() {
     <div className="fixed inset-0 flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
       style={{paddingTop:'env(safe-area-inset-top)',paddingLeft:'env(safe-area-inset-left)',paddingRight:'env(safe-area-inset-right)'}}>
       <style>{`
-        input[type=range]{-webkit-appearance:none;appearance:none;height:2px;background:#3f3f46;width:100%;touch-action:none}
+        input[type=range]{-webkit-appearance:none;appearance:none;height:2px;background:#3f3f46;width:100%;touch-action:pan-y}
         input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;background:#f4e4c1;border-radius:0;cursor:pointer;margin-top:-4px}
         input[type=range]:disabled{opacity:0.35}
         input[type=number]{-moz-appearance:textfield;background:#18181b;color:#a1a1aa;border:1px solid #3f3f46;padding:2px 4px;font-size:11px;width:52px;text-align:right;font-family:monospace}
@@ -1865,22 +1892,31 @@ export default function Phosphor() {
 
             <div className="hidden md:flex relative items-center px-3 py-2 border-t border-zinc-800 shrink-0">
               <div className="flex items-center gap-1.5">
-                <button onClick={()=>zoomAt(viewRef.current.zoom-0.25,0,0)} title="zoom out" aria-label="zoom out"
-                  className="icon-btn w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
-                  <ZoomOut size={12}/>
-                </button>
-                <span className="text-xs text-zinc-600 w-10 text-center">{Math.round(zoom*100)}%</span>
-                <button onClick={()=>zoomAt(viewRef.current.zoom+0.25,0,0)} title="zoom in" aria-label="zoom in"
-                  className="icon-btn w-7 h-7 flex items-center justify-center border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300">
-                  <ZoomIn size={12}/>
-                </button>
-                <button onClick={resetView} className="text-xs text-zinc-600 hover:text-amber-400 ml-1">Reset</button>
+                {/* Cohesive zoom-control group: −  100%  +  Fit */}
+                <div className="flex items-center border border-zinc-700 divide-x divide-zinc-700">
+                  <button onClick={()=>zoomAt(viewRef.current.zoom-0.25,0,0)} title="Zoom out  (−)" aria-label="zoom out"
+                    className="icon-btn w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-amber-300 hover:bg-amber-950/30">
+                    <ZoomOut size={12}/>
+                  </button>
+                  <button onClick={()=>zoomAt(1,0,0)} title="Zoom to 100%"
+                    className="text-xs text-zinc-500 hover:text-amber-300 hover:bg-amber-950/30 w-11 h-7 flex items-center justify-center tabular-nums">
+                    {Math.round(zoom*100)}%
+                  </button>
+                  <button onClick={()=>zoomAt(viewRef.current.zoom+0.25,0,0)} title="Zoom in  (+)" aria-label="zoom in"
+                    className="icon-btn w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-amber-300 hover:bg-amber-950/30">
+                    <ZoomIn size={12}/>
+                  </button>
+                  <button onClick={resetView} title="Fit image to view  (0)"
+                    className="text-xs text-zinc-500 hover:text-amber-300 hover:bg-amber-950/30 px-2.5 h-7 flex items-center tracking-wide">
+                    FIT
+                  </button>
+                </div>
                 <button
                   onPointerDown={e=>{ if(outputUrl){ e.preventDefault(); setComparing(true); } }}
                   onPointerUp={()=>setComparing(false)} onPointerLeave={()=>setComparing(false)}
-                  disabled={!outputUrl} title="hold to see the original"
+                  disabled={!outputUrl} title="Hold to view original"
                   className={`hidden md:flex select-none items-center gap-1.5 ml-2 px-2 h-7 border text-xs transition-colors ${comparing?'border-amber-600 text-amber-100 bg-amber-950/40':'border-zinc-700 text-zinc-500'} enabled:hover:border-amber-600 enabled:hover:text-amber-300 disabled:opacity-30 disabled:cursor-default`}>
-                  <Eye size={12}/> HOLD
+                  <Eye size={12}/> BEFORE
                 </button>
               </div>
               <a href="https://rodrigosilva.design" target="_blank" rel="noopener noreferrer"
