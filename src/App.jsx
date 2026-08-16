@@ -615,6 +615,34 @@ function renderHalftone({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY,tr
 }
 
 // ─── POST: ATMOSPHERE ────────────────────────────────────────────────────────
+// Separable box blur (RGB) in place on an ImageData buffer, using running sums so cost is
+// O(w·h) per pass regardless of radius. Call 3× to approximate a Gaussian. No ctx.filter —
+// Safari/iOS doesn't implement CanvasRenderingContext2D.filter, so we blur in JS everywhere.
+function boxBlurPass(data,w,h,r){
+  if(r<1) return;
+  const tmp=new Uint8ClampedArray(data.length);
+  const win=r*2+1;
+  // horizontal (read data → write tmp)
+  for(let y=0;y<h;y++){
+    const row=y*w*4; let ri=0,gi=0,bi=0;
+    for(let x=-r;x<=r;x++){ const xx=row+Math.min(w-1,Math.max(0,x))*4; ri+=data[xx]; gi+=data[xx+1]; bi+=data[xx+2]; }
+    for(let x=0;x<w;x++){
+      const o=row+x*4; tmp[o]=ri/win; tmp[o+1]=gi/win; tmp[o+2]=bi/win; tmp[o+3]=255;
+      const add=row+Math.min(w-1,x+r+1)*4, sub=row+Math.max(0,x-r)*4;
+      ri+=data[add]-data[sub]; gi+=data[add+1]-data[sub+1]; bi+=data[add+2]-data[sub+2];
+    }
+  }
+  // vertical (read tmp → write data)
+  for(let x=0;x<w;x++){
+    const col=x*4; let ri=0,gi=0,bi=0;
+    for(let y=-r;y<=r;y++){ const yy=col+Math.min(h-1,Math.max(0,y))*w*4; ri+=tmp[yy]; gi+=tmp[yy+1]; bi+=tmp[yy+2]; }
+    for(let y=0;y<h;y++){
+      const o=col+y*w*4; data[o]=ri/win; data[o+1]=gi/win; data[o+2]=bi/win; data[o+3]=255;
+      const add=col+Math.min(h-1,y+r+1)*w*4, sub=col+Math.max(0,y-r)*w*4;
+      ri+=tmp[add]-tmp[sub]; gi+=tmp[add+1]-tmp[sub+1]; bi+=tmp[add+2]-tmp[sub+2];
+    }
+  }
+}
 function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chromaShift,phosphorGrid,darkColor}) {
   const ctx=canvas.getContext('2d');
   const{width:w,height:h}=canvas;
@@ -634,20 +662,33 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
       if(wt>0){ bd[i]=sd[i]*wt; bd[i+1]=sd[i+1]*wt; bd[i+2]=sd[i+2]*wt; bd[i+3]=255; }
     }
     brctx.putImageData(bimg,0,0);
-    // Smooth wide blur without ctx.filter (Safari has no canvas filter). A down→up pyramid:
-    // halve repeatedly (each is a 2×2 average) then double back, so every resample is a gentle
-    // 2× interpolation. That's a proper Gaussian-ish bloom — uniform, no blockiness, and it
-    // dissolves dither/noise into a soft haze instead of smearing it into blocks.
-    const resample=(cv,tw,th)=>{ const c=document.createElement('canvas'); c.width=tw; c.height=th;
-      const cx=c.getContext('2d'); cx.imageSmoothingEnabled=true; cx.imageSmoothingQuality='high';
-      cx.drawImage(cv,0,0,tw,th); return c; };
-    const levels=Math.round(3+g*4);   // more levels → wider, softer glow
-    const chain=[bright]; let cur=bright;
-    for(let i=0;i<levels && cur.width>2 && cur.height>2;i++){ cur=resample(cur,Math.max(1,cur.width>>1),Math.max(1,cur.height>>1)); chain.push(cur); }
-    for(let i=chain.length-2;i>=0;i--){ cur=resample(cur,chain[i].width,chain[i].height); }
+    // Blur the bright layer at a FIXED working resolution (long side ≤512, independent of the
+    // slider) with a separable 3-pass box blur ≈ Gaussian. Fixed grid = the resample never
+    // shifts as glow moves, so grain doesn't swim. Radius is a CONTINUOUS function of g, and
+    // intensity grows continuously too, so the slider changes smoothly at every step.
+    const CAP=512;
+    const scale=Math.min(1,CAP/Math.max(w,h));
+    const ww=Math.max(1,Math.round(w*scale)), wh=Math.max(1,Math.round(h*scale));
+    const work=document.createElement('canvas'); work.width=ww; work.height=wh;
+    const wctx=work.getContext('2d');
+    wctx.imageSmoothingEnabled=true; wctx.imageSmoothingQuality='high';
+    wctx.drawImage(bright,0,0,ww,wh);
+    // Radius on the full image is g·minDim·0.06 (matches the old Gaussian feel); scaled down
+    // to the working resolution. Fractional radius rounded, but the value is large enough that
+    // ±1px steps are invisible — and alpha below keeps every step distinct regardless.
+    const radius=Math.max(1,Math.round(g*Math.min(w,h)*0.06*scale));
+    const wd=wctx.getImageData(0,0,ww,wh);
+    boxBlurPass(wd.data,ww,wh,radius);
+    boxBlurPass(wd.data,ww,wh,radius);
+    boxBlurPass(wd.data,ww,wh,radius);
+    wctx.putImageData(wd,0,0);
+    // Additive composite (screen preserves whites: screen(255,x)=255) with a continuous
+    // intensity that keeps growing up to 100 instead of hard-saturating early.
     ctx.save();
-    ctx.globalCompositeOperation='screen'; ctx.globalAlpha=Math.min(1,g*1.5);
-    ctx.imageSmoothingEnabled=true; ctx.drawImage(cur,0,0);
+    ctx.globalCompositeOperation='screen';
+    ctx.globalAlpha=Math.min(1,0.3+g*0.7);
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+    ctx.drawImage(work,0,0,w,h);
     ctx.restore();
     ctx.imageSmoothingEnabled=false;
   }
