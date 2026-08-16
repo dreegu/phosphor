@@ -14,8 +14,8 @@ import LZString from 'lz-string';
 const GITHUB_URL = 'https://github.com/dreegu';   // profile
 const AUTHOR_URL = 'https://rodrigosilva.design';
 const LINKEDIN_URL = '';   // set to enable the LinkedIn icon in the About modal
-const DEFAULT_DETAIL = 87; // the global detail every non-device preset lands on (linear
-// dither curve: 87 ≈ 4px cells, matching the old geometric default of 55)
+const DEFAULT_DETAIL = 88; // the global detail every non-device preset lands on (linear
+// dither curve, snapped to a 4-unit stop: 88 = exactly 4px cells, ~the old geometric 55)
 
 
 
@@ -148,6 +148,10 @@ const LOOK_BASE = { exposure:0, contrast:0, midtones:1, highlights:1, shadows:1,
 // top of the slider is meaningful in the preview (below that is sub-pixel and invisible);
 // coarsest raised for chunkier dots/cells at detail 0.
 const DETAIL_RANGE = { dither:[1,26], ascii:[5,26], halftone:[1.5,26] };
+// Dither cells are integer px, so only ~26 distinct outputs exist. Snap the Detail slider
+// to one stop per integer cell (px 26→1) so EVERY notch changes the grid — no dead in-between
+// values. 100 / (26-1 intervals) = 4 per step, and each 4-unit stop lands on an integer px.
+const DITHER_DETAIL_STEP = 100 / (DETAIL_RANGE.dither[1] - DETAIL_RANGE.dither[0]);
 // Geometric mapping (halftone/ascii): equal ratio per step, so dragging feels even.
 // Dither is the exception — its cells are quantized to integer px (uniform-grid fix), so a
 // geometric curve piles many slider values onto the same integer at the fine end (a dead
@@ -235,7 +239,7 @@ const LOOK_PRESETS = [
   { name:'2001', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], contrast:55, midtones:0.85, highlights:1.2, shadows:1.35 } },
   { name:'GATTACA', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#141810',anchor:0},{color:'#c8b46c',anchor:1}], contrast:40, highlights:0.95 } },
   { name:'HOLLOW KNIGHT', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#d8e8f8',anchor:1}], contrast:45, midtones:0.95, highlights:1.1 } },
-  { name:'STIPPLE', category:'mono', carriesDetail:true, settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050505',anchor:0},{color:'#f4f2ec',anchor:1}], detail:97, contrast:40, midtones:0.9, highlights:1.15, shadows:1.3 } },
+  { name:'STIPPLE', category:'mono', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050505',anchor:0},{color:'#f4f2ec',anchor:1}], contrast:40, midtones:0.9, highlights:1.15, shadows:1.3 } },
   // ── Riso ──
   { name:'AKIRA MANGA', category:'riso', settings:{ mode:'halftone', htShape:'square', htInk:'#0a0808', htPaper:'#f4f0e8', htAngle:45, contrast:30 } },
   { name:'PAPRIKA', category:'riso', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, phosphorGlow:18 } },
@@ -1643,7 +1647,7 @@ export default function Phosphor() {
   //    per-section tabs can compose the same pieces without duplicating markup. ──
   const presetsBody = (<>
     <div className="sticky top-0 z-10 bg-zinc-950/70 backdrop-blur px-4 py-3">
-      <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
+      <NumSlider label="Detail" value={detail} min={0} max={100} step={mode==='dither'?DITHER_DETAIL_STEP:1} onChange={setDetailOwned}/>
     </div>
     <div className="anim-fadein flex flex-col">
       {CATEGORIES.map(([key,label])=>{
@@ -1708,7 +1712,7 @@ export default function Phosphor() {
         </Field>
         <NumSlider label="Screen angle" value={htAngle} min={0} max={90} step={1} onChange={setHtAngle}/>
       </>}
-      <NumSlider label="Detail" value={detail} min={0} max={100} step={1} onChange={setDetailOwned}/>
+      <NumSlider label="Detail" value={detail} min={0} max={100} step={mode==='dither'?DITHER_DETAIL_STEP:1} onChange={setDetailOwned}/>
     </Panel>
   );
 
@@ -2293,18 +2297,29 @@ function Dropdown({options,value,onChange,preview}) {
     document.addEventListener('mousedown',onDoc);
     return () => document.removeEventListener('mousedown',onDoc);
   },[open]);
-  // Place the menu where it fits: flip above the button when there isn't room below, and
-  // cap its height to the available space so options never spill past the fold.
+  // Place the menu with position:fixed (viewport-anchored) so it escapes the clipping of any
+  // scrollable ancestor — on mobile the tab body has overflow, which used to cut the menu off
+  // and break its internal scroll. Flip above the button when there isn't room below, cap the
+  // height to the available space, and re-place on scroll/resize so it stays glued to the button.
   useEffect(() => {
-    if(!open || !btnRef.current) return;
-    const r = btnRef.current.getBoundingClientRect();
-    const below = window.innerHeight - r.bottom - 10;
-    const above = r.top - 10;
-    const up = below < 200 && above > below;
-    setMenuStyle(up
-      ? {bottom:'100%', marginBottom:4, maxHeight:Math.max(120,Math.min(288,above))}
-      : {top:'100%', marginTop:4, maxHeight:Math.max(120,Math.min(288,below))});
+    if(!open) return;
+    const place = () => {
+      if(!btnRef.current) return;
+      const r = btnRef.current.getBoundingClientRect();
+      const below = window.innerHeight - r.bottom - 10;
+      const above = r.top - 10;
+      const up = below < 200 && above > below;
+      const maxHeight = Math.max(120, Math.min(288, up ? above : below));
+      setMenuStyle({
+        position:'fixed', left:r.left, width:r.width, maxHeight,
+        ...(up ? {bottom:window.innerHeight - r.top + 4} : {top:r.bottom + 4}),
+      });
+    };
+    place();
     selRef.current?.scrollIntoView({block:'nearest'});
+    window.addEventListener('scroll', place, true);   // capture: catch ancestor scrolls too
+    window.addEventListener('resize', place);
+    return () => { window.removeEventListener('scroll', place, true); window.removeEventListener('resize', place); };
   },[open]);
   const current = options.find(o=>o[0]===value);
   return (
@@ -2318,7 +2333,7 @@ function Dropdown({options,value,onChange,preview}) {
         </span>
       </button>
       {open &&
-        <div style={menuStyle} className="absolute z-30 left-0 right-0 overflow-y-auto border border-zinc-700 bg-zinc-900 shadow-xl">
+        <div style={{...menuStyle, touchAction:'pan-y'}} className="fixed z-50 overflow-y-auto overscroll-contain border border-zinc-700 bg-zinc-900 shadow-xl">
           {options.map(([v,l,desc])=>(
             <button key={v} ref={v===value?selRef:null} onClick={()=>{onChange(v); setOpen(false);}}
               className={`w-full text-left px-2.5 py-2 transition-colors ${v===value?'bg-amber-950/40':'hover:bg-zinc-800'}`}>
