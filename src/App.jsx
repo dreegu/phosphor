@@ -655,11 +655,15 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
     const bright=document.createElement('canvas'); bright.width=w; bright.height=h;
     const brctx=bright.getContext('2d');
     const bimg=brctx.createImageData(w,h); const bd=bimg.data;
-    const knee=0.5;
+    // Lower knee → mid-brights (not just near-whites) feed the bloom, so the haze covers more
+    // of the image. Amplify the captured highlights by a gain that grows with g so a strong
+    // glow really blows the brights out, not just tints them.
+    const knee=0.35;
+    const gain=1+g*1.8;
     for(let i=0;i<sd.length;i+=4){
       const v=Math.max(sd[i],sd[i+1],sd[i+2])/255;
       const wt=v>knee?(v-knee)/(1-knee):0;
-      if(wt>0){ bd[i]=sd[i]*wt; bd[i+1]=sd[i+1]*wt; bd[i+2]=sd[i+2]*wt; bd[i+3]=255; }
+      if(wt>0){ const k=wt*gain; bd[i]=Math.min(255,sd[i]*k); bd[i+1]=Math.min(255,sd[i+1]*k); bd[i+2]=Math.min(255,sd[i+2]*k); bd[i+3]=255; }
     }
     brctx.putImageData(bimg,0,0);
     // Blur the bright layer at a FIXED working resolution (long side ≤512, independent of the
@@ -676,18 +680,22 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
     // Radius on the full image is g·minDim·0.06 (matches the old Gaussian feel); scaled down
     // to the working resolution. Fractional radius rounded, but the value is large enough that
     // ±1px steps are invisible — and alpha below keeps every step distinct regardless.
-    const radius=Math.max(1,Math.round(g*Math.min(w,h)*0.06*scale));
+    const radius=Math.max(1,Math.round(g*Math.min(w,h)*0.11*scale));
     const wd=wctx.getImageData(0,0,ww,wh);
     boxBlurPass(wd.data,ww,wh,radius);
     boxBlurPass(wd.data,ww,wh,radius);
     boxBlurPass(wd.data,ww,wh,radius);
     wctx.putImageData(wd,0,0);
-    // Additive composite (screen preserves whites: screen(255,x)=255) with a continuous
-    // intensity that keeps growing up to 100 instead of hard-saturating early.
+    // Composite the halo in two additive passes, both continuous in g and both white-safe
+    // (screen(255,x)=255, lighter only brightens): a wide 'screen' pass lays down a soft
+    // coloured haze, then a 'lighter' pass punches the brights up so high glow reads strong.
     ctx.save();
-    ctx.globalCompositeOperation='screen';
-    ctx.globalAlpha=Math.min(1,0.3+g*0.7);
     ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+    ctx.globalCompositeOperation='screen';
+    ctx.globalAlpha=Math.min(1,0.35+g*0.65);
+    ctx.drawImage(work,0,0,w,h);
+    ctx.globalCompositeOperation='lighter';
+    ctx.globalAlpha=g*0.6;
     ctx.drawImage(work,0,0,w,h);
     ctx.restore();
     ctx.imageSmoothingEnabled=false;
