@@ -14,7 +14,8 @@ import LZString from 'lz-string';
 const GITHUB_URL = 'https://github.com/dreegu';   // profile
 const AUTHOR_URL = 'https://rodrigosilva.design';
 const LINKEDIN_URL = '';   // set to enable the LinkedIn icon in the About modal
-const DEFAULT_DETAIL = 55; // the global detail every non-device preset lands on
+const DEFAULT_DETAIL = 87; // the global detail every non-device preset lands on (linear
+// dither curve: 87 ≈ 4px cells, matching the old geometric default of 55)
 
 
 
@@ -147,15 +148,21 @@ const LOOK_BASE = { exposure:0, contrast:0, midtones:1, highlights:1, shadows:1,
 // top of the slider is meaningful in the preview (below that is sub-pixel and invisible);
 // coarsest raised for chunkier dots/cells at detail 0.
 const DETAIL_RANGE = { dither:[1,26], ascii:[5,26], halftone:[1.5,26] };
-// Geometric mapping: equal ratio per step, so dragging feels even across the whole range.
+// Geometric mapping (halftone/ascii): equal ratio per step, so dragging feels even.
+// Dither is the exception — its cells are quantized to integer px (uniform-grid fix), so a
+// geometric curve piles many slider values onto the same integer at the fine end (a dead
+// zone at the top) and front-loads all the big visual jumps at the coarse end. Linear =
+// equal px difference per step, so every notch changes the grid across the whole slider.
 function detailToSize(mode, detail){
   const [min,max] = DETAIL_RANGE[mode] || DETAIL_RANGE.halftone;
   const d = Math.max(0, Math.min(100, detail))/100;
+  if (mode==='dither') return max - (max-min)*d;
   return max * Math.pow(min/max, d);
 }
 function sizeToDetail(mode, size){
   const [min,max] = DETAIL_RANGE[mode] || DETAIL_RANGE.halftone;
   const s = Math.max(min, Math.min(max, size));
+  if (mode==='dither') return Math.round(Math.max(0, Math.min(100, 100*(max-s)/(max-min))));
   return Math.round(Math.max(0, Math.min(100, 100*Math.log(s/max)/Math.log(min/max))));
 }
 
@@ -228,7 +235,7 @@ const LOOK_PRESETS = [
   { name:'2001', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], contrast:55, midtones:0.85, highlights:1.2, shadows:1.35 } },
   { name:'GATTACA', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#141810',anchor:0},{color:'#c8b46c',anchor:1}], contrast:40, highlights:0.95 } },
   { name:'HOLLOW KNIGHT', category:'mono', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#d8e8f8',anchor:1}], contrast:45, midtones:0.95, highlights:1.1 } },
-  { name:'STIPPLE', category:'mono', carriesDetail:true, settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050505',anchor:0},{color:'#f4f2ec',anchor:1}], detail:85, contrast:40, midtones:0.9, highlights:1.15, shadows:1.3 } },
+  { name:'STIPPLE', category:'mono', carriesDetail:true, settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050505',anchor:0},{color:'#f4f2ec',anchor:1}], detail:97, contrast:40, midtones:0.9, highlights:1.15, shadows:1.3 } },
   // ── Riso ──
   { name:'AKIRA MANGA', category:'riso', settings:{ mode:'halftone', htShape:'square', htInk:'#0a0808', htPaper:'#f4f0e8', htAngle:45, contrast:30 } },
   { name:'PAPRIKA', category:'riso', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, phosphorGlow:18 } },
