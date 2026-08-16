@@ -1070,8 +1070,8 @@ export default function Phosphor() {
     palette: palette.map(({color,anchor})=>({color,anchor})),
     asciiRamp, asciiFg, asciiBg, asciiInvert, asciiCutout, asciiBold,
     htShape, htAngle, htInk, htPaper,
-    exposure, contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift, phosphorGrid, saturation, ditherAmount,
-  }), [mode,algo,dcolor,adaptiveCount,gamut,detail,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,exposure,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,phosphorGrid,saturation,ditherAmount]);
+    exposure, contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift, phosphorGrid, saturation,
+  }), [mode,algo,dcolor,adaptiveCount,gamut,detail,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,exposure,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,phosphorGrid,saturation]);
 
   // ── Undo / redo ───────────────────────────────────────────────────────────
   // History holds serialized settings only (never the image), so replacing the image
@@ -1420,7 +1420,7 @@ export default function Phosphor() {
       ctx.putImageData(id,0,0);
     }
     return canvas;
-  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,revealDetail,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,exposure,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,phosphorGrid,saturation,ditherAmount,transparentBg]);
+  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,revealDetail,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,exposure,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,phosphorGrid,saturation,transparentBg]);
 
   const process = useCallback(() => {
     const canvas = composeOutput(900);
@@ -1921,13 +1921,18 @@ export default function Phosphor() {
                     FIT
                   </button>
                 </div>
-                <button
-                  onPointerDown={e=>{ if(outputUrl){ e.preventDefault(); setComparing(true); } }}
-                  onPointerUp={()=>setComparing(false)} onPointerLeave={()=>setComparing(false)}
-                  disabled={!outputUrl} title="Hold to view original"
-                  className={`hidden md:flex select-none items-center gap-1.5 ml-2 px-2 h-7 border text-xs transition-colors ${comparing?'border-amber-600 text-amber-100 bg-amber-950/40':'border-zinc-700 text-zinc-500'} enabled:hover:border-amber-600 enabled:hover:text-amber-300 disabled:opacity-30 disabled:cursor-default`}>
-                  <Eye size={12}/> BEFORE
-                </button>
+                <div className="hidden md:block relative group ml-2">
+                  <button
+                    onPointerDown={e=>{ if(outputUrl){ e.preventDefault(); setComparing(true); } }}
+                    onPointerUp={()=>setComparing(false)} onPointerLeave={()=>setComparing(false)}
+                    disabled={!outputUrl} aria-label="Hold to view original"
+                    className={`flex select-none items-center gap-1.5 px-2 h-7 border text-xs transition-colors ${comparing?'border-amber-600 text-amber-100 bg-amber-950/40':'border-zinc-700 text-zinc-500'} enabled:hover:border-amber-600 enabled:hover:text-amber-300 disabled:opacity-30 disabled:cursor-default`}>
+                    <Eye size={12}/> BEFORE
+                  </button>
+                  <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap px-2 py-1 text-[11px] tracking-wide text-zinc-300 bg-zinc-900 border border-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Hold to view original
+                  </span>
+                </div>
               </div>
               <a href="https://rodrigosilva.design" target="_blank" rel="noopener noreferrer"
                 className="hidden lg:block ml-auto text-xs text-zinc-600 hover:text-amber-400 transition-colors">
