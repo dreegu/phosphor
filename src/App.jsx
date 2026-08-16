@@ -139,7 +139,7 @@ const PALETTE_PRESETS = {
 };
 
 // Baseline every look resets to, so a preset only declares what it changes.
-const LOOK_BASE = { exposure:0, contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, asciiInvert:false, asciiCutout:0, asciiBold:true, dcolor:'palette', adaptiveCount:16, gamut:'full' };
+const LOOK_BASE = { exposure:0, contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, phosphorGrid:0, saturation:100, ditherAmount:100, asciiInvert:false, asciiCutout:0, asciiBold:true, dcolor:'palette', adaptiveCount:16, gamut:'full' };
 
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
@@ -390,7 +390,7 @@ const DEVICE_GAMUTS = {
 
 // Dither the image toward a palette derived FROM the image (hue preserved), optionally
 // constrained to a device gamut. Fills `out`; returns the palette.
-function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut){
+function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut,satMul=1.75,dAmt=1){
   const total=sw*sh;
   const R=new Float32Array(total),G=new Float32Array(total),B=new Float32Array(total);
   for(let i=0;i<total;i++){
@@ -410,12 +410,12 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut){
     if(gm.desat){ const k=gm.desat; base = base.map(([r,g,b])=>{ const l=0.299*r+0.587*g+0.114*b; return [r+(l-r)*k, g+(l-g)*k, b+(l-b)*k]; }); }
     pal = base.map(([r,g,b])=>[snap(r),snap(g),snap(b)]);  // snap to console grid
   } else {
-    pal = vividPalette(medianCutPalette(samples, Math.max(2,Math.min(16,n||16))));
+    pal = vividPalette(medianCutPalette(samples, Math.max(2,Math.min(16,n||16))), satMul);
   }
   const ordered = algo==='bluenoise'||!!ORDERED_PATTERNS[algo];
   if(ordered){
     const{matrix,size,max}=algo==='bluenoise'?getBlueNoise():ORDERED_PATTERNS[algo];
-    const amp=48;
+    const amp=48*dAmt;
     for(let y=0;y<sh;y++) for(let x=0;x<sw;x++){
       const i=y*sw+x, thr=((matrix[y%size][x%size]+0.5)/max-0.5)*amp;
       const c=pal[nearestIdx(R[i]+thr,G[i]+thr,B[i]+thr,pal)], oi=i*4;
@@ -427,7 +427,7 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut){
     for(let m=0;m<order.length;m++){
       const i=order[m];
       let ar=0,ag=0,ab=0; for(let k=0;k<RIEM_N;k++){const w=RIEM_W[k],idx=(hp-1-k+RIEM_N)%RIEM_N; ar+=hr[idx]*w; ag+=hg[idx]*w; ab+=hb[idx]*w;}
-      const r=Math.max(0,Math.min(255,R[i]+ar)),g=Math.max(0,Math.min(255,G[i]+ag)),b=Math.max(0,Math.min(255,B[i]+ab));
+      const r=Math.max(0,Math.min(255,R[i]+ar*dAmt)),g=Math.max(0,Math.min(255,G[i]+ag*dAmt)),b=Math.max(0,Math.min(255,B[i]+ab*dAmt));
       const c=pal[nearestIdx(r,g,b,pal)], oi=i*4;
       out[oi]=c[0];out[oi+1]=c[1];out[oi+2]=c[2];out[oi+3]=255;
       hr[hp]=r-c[0]; hg[hp]=g-c[1]; hb[hp]=b-c[2]; hp=(hp+1)%RIEM_N;
@@ -439,11 +439,11 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut){
       out[oi]=c[0];out[oi+1]=c[1];out[oi+2]=c[2];out[oi+3]=255;
       const er=r-c[0],eg=g-c[1],eb=b-c[2];
       if(algo==='atkinson'){
-        const f=1/8, push=(nx,ny)=>{ if(nx>=0&&nx<sw&&ny>=0&&ny<sh){const j=ny*sw+nx;R[j]+=er*f;G[j]+=eg*f;B[j]+=eb*f;} };
+        const f=dAmt/8, push=(nx,ny)=>{ if(nx>=0&&nx<sw&&ny>=0&&ny<sh){const j=ny*sw+nx;R[j]+=er*f;G[j]+=eg*f;B[j]+=eb*f;} };
         push(x+1,y);push(x+2,y);push(x-1,y+1);push(x,y+1);push(x+1,y+1);push(x,y+2);
       } else {
         const{div,taps}=DIFFUSION_KERNELS[algo]||DIFFUSION_KERNELS.diffusion;
-        for(const[dx,dy,wt]of taps){ const nx=x+dx,ny=y+dy; if(nx>=0&&nx<sw&&ny>=0&&ny<sh){const j=ny*sw+nx,f=wt/div;R[j]+=er*f;G[j]+=eg*f;B[j]+=eb*f;} }
+        for(const[dx,dy,wt]of taps){ const nx=x+dx,ny=y+dy; if(nx>=0&&nx<sw&&ny>=0&&ny<sh){const j=ny*sw+nx,f=wt/div*dAmt;R[j]+=er*f;G[j]+=eg*f;B[j]+=eb*f;} }
       }
     }
   }
@@ -451,7 +451,8 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut){
 }
 
 // ─── RENDER: DITHER ──────────────────────────────────────────────────────────
-function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut}) {
+function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut,saturation=100,ditherAmount=100}) {
+  const satMul = 1.75*(saturation/100), dAmt = ditherAmount/100;
   const sw = Math.max(1,Math.round(w/px)), sh = Math.max(1,Math.round(h/px));
   const small = document.createElement('canvas');
   small.width=sw; small.height=sh;
@@ -461,7 +462,7 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adapti
   const data = sctx.getImageData(0,0,sw,sh).data;
   const out = new Uint8ClampedArray(sw*sh*4);
   if (colorMode==='adaptive') {
-    ditherAdaptive(data,sw,sh,out,algo,getY,adaptiveCount,gamut);
+    ditherAdaptive(data,sw,sh,out,algo,getY,adaptiveCount,gamut,satMul,dAmt);
     sctx.putImageData(new ImageData(out,sw,sh),0,0);
     const canvas=document.createElement('canvas');
     canvas.width=w; canvas.height=h;
@@ -480,7 +481,8 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adapti
     for (let k=0;k<lums.length-1;k++) {
       if (Y>=lums[k]&&Y<=lums[k+1]) {
         const t=(lums[k+1]-lums[k])>0?(Y-lums[k])/(lums[k+1]-lums[k]):0;
-        return t>(matrix[y%size][x%size]+0.5)/maxVal?k+1:k;
+        const thr=0.5+((matrix[y%size][x%size]+0.5)/maxVal-0.5)*dAmt;   // 0 amount → hard posterize
+        return t>thr?k+1:k;
       }
     }
     return lums.length-1;
@@ -501,7 +503,7 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adapti
       const i=order[n], di=i*4;
       const base=getY(data[di],data[di+1],data[di+2])*255;
       let acc=0; for(let k=0;k<RIEM_N;k++) acc+=hbuf[(hp-1-k+RIEM_N)%RIEM_N]*RIEM_W[k];
-      const v=Math.max(0,Math.min(255,base+acc));
+      const v=Math.max(0,Math.min(255,base+acc*dAmt));
       let best=0,bd=Infinity; for(let k=0;k<gL.length;k++){const d=Math.abs(v-gL[k]);if(d<bd){bd=d;best=k;}}
       hbuf[hp]=v-gL[best]; hp=(hp+1)%RIEM_N;
       const c=cols[best]; out[di]=c[0];out[di+1]=c[1];out[di+2]=c[2];out[di+3]=(transparent&&best===bgIdx)?0:255;
@@ -518,7 +520,7 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adapti
       const err=v-gL[best]; const c=cols[best]; const oi=i*4;
       out[oi]=c[0];out[oi+1]=c[1];out[oi+2]=c[2];out[oi+3]=(transparent&&best===bgIdx)?0:255;
       if (algo==='atkinson') {
-        const e=err/8;
+        const e=err/8*dAmt;
         if(x+1<sw)work[i+1]+=e; if(x+2<sw)work[i+2]+=e;
         if(x-1>=0&&y+1<sh)work[i+sw-1]+=e; if(y+1<sh)work[i+sw]+=e;
         if(x+1<sw&&y+1<sh)work[i+sw+1]+=e; if(y+2<sh)work[i+sw*2]+=e;
@@ -526,7 +528,7 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adapti
         const {div,taps}=DIFFUSION_KERNELS[algo]||DIFFUSION_KERNELS.diffusion;
         for(const [dx,dy,wt] of taps){
           const nx=x+dx, ny=y+dy;
-          if(nx>=0&&nx<sw&&ny<sh) work[ny*sw+nx]+=err*wt/div;
+          if(nx>=0&&nx<sw&&ny<sh) work[ny*sw+nx]+=err*wt/div*dAmt;
         }
       }
     }
@@ -613,7 +615,7 @@ function renderHalftone({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY,tr
 }
 
 // ─── POST: ATMOSPHERE ────────────────────────────────────────────────────────
-function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chromaShift,darkColor}) {
+function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chromaShift,phosphorGrid,darkColor}) {
   const ctx=canvas.getContext('2d');
   const{width:w,height:h}=canvas;
   if(phosphorGlow>0){
@@ -677,6 +679,21 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
     }
     ctx.putImageData(out,0,0);
   }
+  if(phosphorGrid>0){
+    // RGB aperture grille: vertical R/G/B subpixel stripes. Off-channels darken, the lit one
+    // lifts a touch to hold brightness. Stripe width scales with the render so triads stay
+    // visible from preview to full-res export.
+    const s=phosphorGrid/100, cell=Math.max(1,Math.round(Math.min(w,h)/320));
+    const dim=1-s*0.55, boost=1+s*0.22;
+    const img=ctx.getImageData(0,0,w,h); const d=img.data;
+    for(let y=0;y<h;y++){ for(let x=0;x<w;x++){
+      const phase=Math.floor(x/cell)%3, i=(y*w+x)*4;
+      d[i]  *= phase===0?boost:dim;
+      d[i+1]*= phase===1?boost:dim;
+      d[i+2]*= phase===2?boost:dim;
+    }}
+    ctx.putImageData(img,0,0);
+  }
 }
 
 // Build the tone-mapping function from a settings object (mirrors process()).
@@ -702,11 +719,11 @@ function renderSettingsToCanvas(img,s,w,h){
   const scale=Math.max(0.05,Math.min(1,Math.max(w,h)/900));
   const sizeFor=(m,legacy)=> (s.detail!==undefined ? detailToSize(m,s.detail) : legacy) * scale;
   let canvas;
-  if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,sizeFor('dither',s.pixelSize||5)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount,gamut:s.gamut});
+  if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,sizeFor('dither',s.pixelSize||5)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount,gamut:s.gamut,saturation:s.saturation,ditherAmount:s.ditherAmount});
   else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:Math.max(3,sizeFor('ascii',s.asciiSize||8)),getY,invert:s.asciiInvert,cutout:s.asciiCutout,bold:s.asciiBold!==false});
   else canvas=renderHalftone({img,w,h,shape:s.htShape||'circle',dotSize:Math.max(0.8,sizeFor('halftone',s.htSize||3.5)),angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY});
   const darkColor=mode==='dither'?(([...(s.palette||[])].sort((a,b)=>a.anchor-b.anchor)[0]||{}).color||'#000'):mode==='ascii'?(s.asciiBg||'#000'):'#000';
-  applyAtmosphere(canvas,{phosphorGlow:s.phosphorGlow||0,luminanceLift:s.luminanceLift||0,scanlines:s.scanlines||0,noise:s.noise||0,chromaShift:s.chromaShift||0,darkColor});
+  applyAtmosphere(canvas,{phosphorGlow:s.phosphorGlow||0,luminanceLift:s.luminanceLift||0,scanlines:s.scanlines||0,noise:s.noise||0,chromaShift:s.chromaShift||0,phosphorGrid:s.phosphorGrid||0,darkColor});
   return canvas;
 }
 
@@ -780,8 +797,8 @@ function buildHalftoneSVG({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY,
 
 // Dither → sample the rendered block grid and emit rects, merging horizontal runs of
 // one colour so files stay lean. Reuses renderDither so the pattern matches exactly.
-function buildDitherSVG({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut}){
-  const canvas=renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut});
+function buildDitherSVG({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut,saturation,ditherAmount}){
+  const canvas=renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut,saturation,ditherAmount});
   const cw=canvas.width, ch=canvas.height;
   const data=canvas.getContext('2d').getImageData(0,0,cw,ch).data;
   const step=Math.max(1,Math.round(px));
@@ -811,7 +828,7 @@ function renderSettingsToSVG(img,s,w,h){
   const tp=!!s.transparent;
   if(mode==='ascii') return buildAsciiSVG({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:detailToSize('ascii',s.detail??55),getY,transparent:tp,invert:!!s.asciiInvert,cutout:s.asciiCutout||0,bold:s.asciiBold!==false});
   if(mode==='halftone') return buildHalftoneSVG({img,w,h,shape:s.htShape||'circle',dotSize:detailToSize('halftone',s.detail??55),angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY,transparent:tp});
-  return buildDitherSVG({img,w,h,px:Math.max(1,detailToSize('dither',s.detail??55)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,transparent:tp,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount,gamut:s.gamut});
+  return buildDitherSVG({img,w,h,px:Math.max(1,detailToSize('dither',s.detail??55)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,transparent:tp,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount,gamut:s.gamut,saturation:s.saturation,ditherAmount:s.ditherAmount});
 }
 
 const EXPORT_MAX = 4096;    // raster export ceiling (long side) — safe across browsers
@@ -886,6 +903,9 @@ export default function Phosphor() {
   const [scanlines, setScanlines] = useState(0);
   const [noise, setNoise] = useState(0);
   const [chromaShift, setChromaShift] = useState(0);
+  const [phosphorGrid, setPhosphorGrid] = useState(0);   // RGB subpixel mask (Effects)
+  const [saturation, setSaturation] = useState(100);      // adaptive palette vibrance (100 = default)
+  const [ditherAmount, setDitherAmount] = useState(100);  // 0 = flat posterize, 100 = full dither
 
   const [transparentBg, setTransparentBg] = useState(false);
   const [format, setFormat] = useState('jpeg');
@@ -1012,6 +1032,9 @@ export default function Phosphor() {
     if(s.scanlines!==undefined) setScanlines(s.scanlines);
     if(s.noise!==undefined) setNoise(s.noise);
     if(s.chromaShift!==undefined) setChromaShift(s.chromaShift);
+    if(s.phosphorGrid!==undefined) setPhosphorGrid(s.phosphorGrid);
+    if(s.saturation!==undefined) setSaturation(s.saturation);
+    if(s.ditherAmount!==undefined) setDitherAmount(s.ditherAmount);
   };
 
   // Fresh entry: a random sample image paired with a random look, so the landing frame
@@ -1036,8 +1059,8 @@ export default function Phosphor() {
     palette: palette.map(({color,anchor})=>({color,anchor})),
     asciiRamp, asciiFg, asciiBg, asciiInvert, asciiCutout, asciiBold,
     htShape, htAngle, htInk, htPaper,
-    exposure, contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift,
-  }), [mode,algo,dcolor,adaptiveCount,gamut,detail,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,exposure,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift]);
+    exposure, contrast, midtones, highlights, shadows, phosphorGlow, luminanceLift, scanlines, noise, chromaShift, phosphorGrid, saturation, ditherAmount,
+  }), [mode,algo,dcolor,adaptiveCount,gamut,detail,palette,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,exposure,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,phosphorGrid,saturation,ditherAmount]);
 
   // ── Undo / redo ───────────────────────────────────────────────────────────
   // History holds serialized settings only (never the image), so replacing the image
@@ -1331,7 +1354,7 @@ export default function Phosphor() {
     let canvas;
     const tp=transparentBg;
     const dv = revealDetail ?? detail;   // render-only reveal override; falls back to the slider value
-    if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,detailToSize('dither',dv)*scale),palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount,gamut});
+    if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,detailToSize('dither',dv)*scale),palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount,gamut,saturation,ditherAmount});
     else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:Math.max(3,detailToSize('ascii',dv)*scale),getY,transparent:tp,invert:asciiInvert,cutout:asciiCutout,bold:asciiBold});
     else canvas=renderHalftone({img,w,h,shape:htShape,dotSize:Math.max(0.8,detailToSize('halftone',dv)*scale),angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
     if (!canvas) return null;
@@ -1349,7 +1372,7 @@ export default function Phosphor() {
       for(let i=0,p=0;i<id.data.length;i+=4,p++) alphaMask[p]=id.data[i+3];
     }
 
-    applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chromaShift,darkColor});
+    applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chromaShift,phosphorGrid,darkColor});
 
     if(tp&&alphaMask){
       const ctx=canvas.getContext('2d');
@@ -1359,7 +1382,7 @@ export default function Phosphor() {
       ctx.putImageData(id,0,0);
     }
     return canvas;
-  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,revealDetail,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,exposure,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,transparentBg]);
+  }, [mode,palette,algo,dcolor,adaptiveCount,gamut,detail,revealDetail,asciiRamp,asciiFg,asciiBg,asciiInvert,asciiCutout,asciiBold,htShape,htAngle,htInk,htPaper,exposure,contrast,midtones,highlights,shadows,phosphorGlow,luminanceLift,scanlines,noise,chromaShift,phosphorGrid,saturation,ditherAmount,transparentBg]);
 
   const process = useCallback(() => {
     const canvas = composeOutput(900);
@@ -1516,8 +1539,8 @@ export default function Phosphor() {
   // Reset-to-default affordances: only surfaced once a value has moved off its baseline.
   const appearanceDirty = exposure!==0 || contrast!==0 || midtones!==1 || highlights!==1 || shadows!==1;
   const resetAppearance = () => { setExposure(0); setContrast(0); setMidtones(1); setHighlights(1); setShadows(1); };
-  const atmosphereDirty = phosphorGlow!==0 || luminanceLift!==0 || scanlines!==0 || noise!==0 || chromaShift!==0;
-  const resetAtmosphere = () => { setPhosphorGlow(0); setLuminanceLift(0); setScanlines(0); setNoise(0); setChromaShift(0); };
+  const atmosphereDirty = phosphorGlow!==0 || luminanceLift!==0 || scanlines!==0 || noise!==0 || chromaShift!==0 || phosphorGrid!==0;
+  const resetAtmosphere = () => { setPhosphorGlow(0); setLuminanceLift(0); setScanlines(0); setNoise(0); setChromaShift(0); setPhosphorGrid(0); };
 
   // ── Control panels, factored so the desktop sidebar (long scroll) and the mobile
   //    per-section tabs can compose the same pieces without duplicating markup. ──
@@ -1570,11 +1593,13 @@ export default function Phosphor() {
       <Field label="Mode">
         <Segmented options={[['dither','Dither'],['ascii','ASCII'],['halftone','Halftone']]} value={mode} onChange={handleModeChange}/>
       </Field>
-      {mode==='dither' &&
+      {mode==='dither' && <>
         <Field label="Pattern">
           <Dropdown value={algo} onChange={setAlgo}
             options={[['bayer2','Grid 2×2'],['bayer','Grid 4×4'],['bayer8','Grid 8×8'],['diamond','Diamond'],['bluenoise','Blue noise'],['diffusion','Floyd–Steinberg'],['jjn','Jarvis'],['stucki','Stucki'],['sierra','Sierra'],['atkinson','Atkinson'],['riemersma','Riemersma']]}/>
-        </Field>}
+        </Field>
+        <NumSlider label="Dither amount" value={ditherAmount} min={0} max={100} step={1} onChange={setDitherAmount}/>
+      </>}
       {mode==='ascii' &&
         <Field label="Character set">
           <Dropdown value={asciiRamp} onChange={setAsciiRamp}
@@ -1612,6 +1637,7 @@ export default function Phosphor() {
             options={[['full','Full color']].concat(Object.entries(DEVICE_GAMUTS).map(([k,g])=>[k,g.label]))}/>
         </Field>
         {gamut==='full' && <NumSlider label="Colors" value={adaptiveCount} min={2} max={16} step={1} onChange={setAdaptiveCount}/>}
+        {gamut==='full' && <NumSlider label="Saturation" value={saturation} min={0} max={200} step={1} onChange={setSaturation}/>}
         <div className="text-xs text-zinc-600 leading-relaxed">{gamut==='full'
           ? "Builds a palette from the photo's own colours and maps each pixel to the nearest — the image keeps its real hues instead of a fixed look."
           : `Maps the photo onto the ${(DEVICE_GAMUTS[gamut]||{label:gamut}).label} color set — authentic hardware colors, approximated from your image.`}</div>
@@ -1697,6 +1723,7 @@ export default function Phosphor() {
       <NumSlider label="Scanlines" value={scanlines} min={0} max={100} step={1} onChange={setScanlines}/>
       <NumSlider label="Noise"     value={noise}     min={0} max={100} step={1} onChange={setNoise}/>
       <NumSlider label="Chroma shift" value={chromaShift} min={0} max={20} step={0.5} onChange={setChromaShift}/>
+      <NumSlider label="Phosphor grid" value={phosphorGrid} min={0} max={100} step={1} onChange={setPhosphorGrid}/>
     </Panel>
   );
 
