@@ -191,34 +191,34 @@ const LOOK_PRESETS = [
   { name:'VIRTUAL BOY', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'bayer', dcolor:'adaptive', gamut:'virtualboy', detail:deviceDetail('virtualboy') } },
   { name:'MACINTOSH', category:'hardware', carriesDetail:true, settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#000000',anchor:0},{color:'#ffffff',anchor:1}], detail:deviceDetail('mac') } },
   // ── Soft ──
-  { name:'HER', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#2d0f0f',anchor:0},{color:'#7a3030',anchor:0.2},{color:'#c47850',anchor:0.5},{color:'#e8b090',anchor:0.78},{color:'#faeae0',anchor:1}], contrast:15, midtones:1.3, highlights:0.85, shadows:0.85, phosphorGlow:40 } },
-  { name:'CELESTE', category:'soft', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#1a0a20',anchor:0},{color:'#3a2050',anchor:0.2},{color:'#c07090',anchor:0.55},{color:'#e8b8a0',anchor:0.82},{color:'#f8f0e0',anchor:1}], contrast:20, midtones:1.25, highlights:0.85, shadows:0.85, phosphorGlow:20 } },
-  { name:'SILENT HILL', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0c0c10',anchor:0},{color:'#2c2121',anchor:0.16},{color:'#5f534e',anchor:0.33},{color:'#7b7656',anchor:0.5},{color:'#a8a180',anchor:0.66},{color:'#cfcaab',anchor:0.83},{color:'#e9e5d3',anchor:1}], midtones:0.95, phosphorGlow:30, luminanceLift:10 } },
+  { name:'HER', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#2d0f0f',anchor:0},{color:'#7a3030',anchor:0.2},{color:'#c47850',anchor:0.5},{color:'#e8b090',anchor:0.78},{color:'#faeae0',anchor:1}], contrast:15, midtones:1.3, highlights:0.85, shadows:0.85, phosphorGlow:24 } },
+  { name:'CELESTE', category:'soft', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#1a0a20',anchor:0},{color:'#3a2050',anchor:0.2},{color:'#c07090',anchor:0.55},{color:'#e8b8a0',anchor:0.82},{color:'#f8f0e0',anchor:1}], contrast:20, midtones:1.25, highlights:0.85, shadows:0.85, phosphorGlow:12 } },
+  { name:'SILENT HILL', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0c0c10',anchor:0},{color:'#2c2121',anchor:0.16},{color:'#5f534e',anchor:0.33},{color:'#7b7656',anchor:0.5},{color:'#a8a180',anchor:0.66},{color:'#cfcaab',anchor:0.83},{color:'#e9e5d3',anchor:1}], midtones:0.95, phosphorGlow:18, luminanceLift:10 } },
   { name:'PERFECT BLUE', category:'soft', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#030726',anchor:0},{color:'#172445',anchor:0.1},{color:'#082c76',anchor:0.18},{color:'#2477b7',anchor:0.31},{color:'#a6cbcd',anchor:0.69},{color:'#f3f4e6',anchor:1}], contrast:-11, midtones:1.1, highlights:1.5, shadows:1.2 } },
-  { name:'METAL GEAR SOLID', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#041513',anchor:0.08},{color:'#1a5148',anchor:0.14},{color:'#117449',anchor:0.25},{color:'#3a9862',anchor:0.32},{color:'#83ce92',anchor:0.78},{color:'#a5dfc4',anchor:0.84},{color:'#d0e2da',anchor:0.95}], phosphorGlow:15, luminanceLift:30, scanlines:20 } },
-  { name:'GHOST IN THE SHELL', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#1a1d1f',anchor:0.08},{color:'#21313f',anchor:0.13},{color:'#38658c',anchor:0.25},{color:'#7ac0e3',anchor:0.52},{color:'#7ac0e3',anchor:0.72},{color:'#ddc292',anchor:1}], contrast:-10, midtones:0.75, highlights:1.3, shadows:1.05, phosphorGlow:20, luminanceLift:20 } },
-  { name:'TOEM', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0c0c10',anchor:0.04},{color:'#333333',anchor:0.17},{color:'#616161',anchor:0.33},{color:'#808080',anchor:0.45},{color:'#a8a8a8',anchor:0.64},{color:'#cfcfcf',anchor:0.81},{color:'#e9e9e9',anchor:0.96}], contrast:10, midtones:0.95, highlights:0.95, shadows:0.95, phosphorGlow:15, luminanceLift:15 } },
+  { name:'METAL GEAR SOLID', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#041513',anchor:0.08},{color:'#1a5148',anchor:0.14},{color:'#117449',anchor:0.25},{color:'#3a9862',anchor:0.32},{color:'#83ce92',anchor:0.78},{color:'#a5dfc4',anchor:0.84},{color:'#d0e2da',anchor:0.95}], phosphorGlow:9, luminanceLift:30, scanlines:20 } },
+  { name:'GHOST IN THE SHELL', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#1a1d1f',anchor:0.08},{color:'#21313f',anchor:0.13},{color:'#38658c',anchor:0.25},{color:'#7ac0e3',anchor:0.52},{color:'#7ac0e3',anchor:0.72},{color:'#ddc292',anchor:1}], contrast:-10, midtones:0.75, highlights:1.3, shadows:1.05, phosphorGlow:12, luminanceLift:20 } },
+  { name:'TOEM', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0c0c10',anchor:0.04},{color:'#333333',anchor:0.17},{color:'#616161',anchor:0.33},{color:'#808080',anchor:0.45},{color:'#a8a8a8',anchor:0.64},{color:'#cfcfcf',anchor:0.81},{color:'#e9e9e9',anchor:0.96}], contrast:10, midtones:0.95, highlights:0.95, shadows:0.95, phosphorGlow:9, luminanceLift:15 } },
   { name:'ANOTHER WORLD', category:'soft', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#302d1c',anchor:0.03},{color:'#584b38',anchor:0.13},{color:'#484967',anchor:0.21},{color:'#888888',anchor:0.33},{color:'#ada190',anchor:0.48},{color:'#c9a189',anchor:0.64},{color:'#e5c884',anchor:0.89}] } },
   // ── Cinematic ──
   { name:'DUNE', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#330d0a',anchor:0.07},{color:'#73230e',anchor:0.16},{color:'#b44b12',anchor:0.41},{color:'#df781d',anchor:0.53},{color:'#f39a2b',anchor:0.62},{color:'#fcc95d',anchor:0.73},{color:'#fcd788',anchor:0.82},{color:'#ecdec5',anchor:1}], contrast:-24, midtones:1.1, highlights:1.15, shadows:1.45 } },
   { name:'STRANGER THINGS', category:'cinematic', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#030726',anchor:0},{color:'#172445',anchor:0.1},{color:'#082c76',anchor:0.18},{color:'#b12323',anchor:0.33},{color:'#a6cbcd',anchor:0.69},{color:'#f3f4e6',anchor:1}], contrast:-11, midtones:1.1, highlights:1.5, shadows:1.2 } },
   { name:'VIDEODROME', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#0e132b',anchor:0.08},{color:'#035a8f',anchor:0.27},{color:'#9f3e8c',anchor:0.36},{color:'#c50012',anchor:0.46},{color:'#ea7d9c',anchor:0.52},{color:'#86b5c4',anchor:0.67},{color:'#3ac6bd',anchor:0.76},{color:'#e3ead9',anchor:0.92}], contrast:1 } },
-  { name:'EDGERUNNERS', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#061012',anchor:0.04},{color:'#1f4240',anchor:0.19},{color:'#1f706b',anchor:0.37},{color:'#847ab7',anchor:0.46},{color:'#76c1a1',anchor:0.63},{color:'#e8f901',anchor:0.75},{color:'#c7dee5',anchor:0.83},{color:'#ece0f0',anchor:0.97}], phosphorGlow:18, luminanceLift:13 } },
+  { name:'EDGERUNNERS', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#061012',anchor:0.04},{color:'#1f4240',anchor:0.19},{color:'#1f706b',anchor:0.37},{color:'#847ab7',anchor:0.46},{color:'#76c1a1',anchor:0.63},{color:'#e8f901',anchor:0.75},{color:'#c7dee5',anchor:0.83},{color:'#ece0f0',anchor:0.97}], phosphorGlow:11, luminanceLift:13 } },
   { name:'BACK TO THE FUTURE', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#16171d',anchor:0},{color:'#050f3e',anchor:0.08},{color:'#1a2a67',anchor:0.22},{color:'#b15527',anchor:0.39},{color:'#dd6227',anchor:0.52},{color:'#eab130',anchor:0.59},{color:'#d8c3ae',anchor:0.85}], noise:50 } },
   { name:'ANDOR', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#101826',anchor:0},{color:'#3a3d4a',anchor:0.14},{color:'#e8785a',anchor:0.41},{color:'#f0d8b0',anchor:0.91}], noise:45 } },
-  { name:'FINAL FANTASY', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#021618',anchor:0},{color:'#1a4951',anchor:0.18},{color:'#2c8090',anchor:0.4},{color:'#6bbcae',anchor:0.5},{color:'#1ab788',anchor:0.61},{color:'#ebd0a7',anchor:0.76},{color:'#fce2e1',anchor:0.83},{color:'#fef3f1',anchor:0.96}], midtones:0.75, highlights:1.3, shadows:1.05, phosphorGlow:15, luminanceLift:20 } },
+  { name:'FINAL FANTASY', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#021618',anchor:0},{color:'#1a4951',anchor:0.18},{color:'#2c8090',anchor:0.4},{color:'#6bbcae',anchor:0.5},{color:'#1ab788',anchor:0.61},{color:'#ebd0a7',anchor:0.76},{color:'#fce2e1',anchor:0.83},{color:'#fef3f1',anchor:0.96}], midtones:0.75, highlights:1.3, shadows:1.05, phosphorGlow:9, luminanceLift:20 } },
   { name:'DOOM', category:'cinematic', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#020202',anchor:0.05},{color:'#502f30',anchor:0.21},{color:'#cd3c32',anchor:0.49},{color:'#c87d50',anchor:0.59},{color:'#67975c',anchor:0.71},{color:'#97c47e',anchor:0.83},{color:'#f2d673',anchor:1}], contrast:-4, highlights:0.85, shadows:0.95 } },
   // ── Poster ──
   { name:'DISCO ELYSIUM', category:'poster', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#382015',anchor:0},{color:'#4e3f22',anchor:0.2},{color:'#545416',anchor:0.33},{color:'#7192a3',anchor:0.5},{color:'#b45629',anchor:0.63},{color:'#f5ac8a',anchor:0.73},{color:'#fcfcf0',anchor:0.91}], contrast:35, midtones:0.75, highlights:0.9, shadows:0.8, noise:20 } },
   { name:'BLADE RUNNER', category:'poster', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#251f30',anchor:0.11},{color:'#103a4a',anchor:0.36},{color:'#693238',anchor:0.55},{color:'#e93835',anchor:0.52},{color:'#237879',anchor:0.64},{color:'#f9f0da',anchor:0.84}], shadows:1.25 } },
   { name:'MAD MAX', category:'poster', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#010508',anchor:0.13},{color:'#0e3f3a',anchor:0.02},{color:'#347abc',anchor:0.27},{color:'#943b12',anchor:0.36},{color:'#c08316',anchor:0.61},{color:'#eeca03',anchor:0.77},{color:'#7bb7c1',anchor:0.87},{color:'#c6e5e6',anchor:0.94}], contrast:5, midtones:0.9, highlights:0.9, shadows:1.15, noise:40 } },
-  { name:'CASTLEVANIA', category:'poster', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000302',anchor:0.05},{color:'#18363f',anchor:0.34},{color:'#ca0507',anchor:0.76},{color:'#e2a99d',anchor:0.94}], phosphorGlow:15, luminanceLift:10 } },
+  { name:'CASTLEVANIA', category:'poster', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000302',anchor:0.05},{color:'#18363f',anchor:0.34},{color:'#ca0507',anchor:0.76},{color:'#e2a99d',anchor:0.94}], phosphorGlow:9, luminanceLift:10 } },
   // ── Vivid ──
-  { name:'CYBERPUNK', category:'vivid', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0010',anchor:0.04},{color:'#330022',anchor:0.14},{color:'#880044',anchor:0.24},{color:'#ff0088',anchor:0.37},{color:'#50818b',anchor:0.42},{color:'#babc50',anchor:0.48},{color:'#ffee00',anchor:0.88}], phosphorGlow:25, luminanceLift:10, scanlines:10, chromaShift:3 } },
-  { name:'AVATAR', category:'vivid', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#000814',anchor:0},{color:'#001a33',anchor:0.35},{color:'#003366',anchor:0.6},{color:'#0099aa',anchor:0.82},{color:'#44ffcc',anchor:1}], contrast:45, highlights:1.2, shadows:1.2, phosphorGlow:60 } },
-  { name:'STREETS OF RAGE', category:'vivid', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000820',anchor:0},{color:'#001850',anchor:0.25},{color:'#0044aa',anchor:0.55},{color:'#ff8800',anchor:0.82},{color:'#ffeeaa',anchor:1}], contrast:40, highlights:1.1, phosphorGlow:25 } },
+  { name:'CYBERPUNK', category:'vivid', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a0010',anchor:0.04},{color:'#330022',anchor:0.14},{color:'#880044',anchor:0.24},{color:'#ff0088',anchor:0.37},{color:'#50818b',anchor:0.42},{color:'#babc50',anchor:0.48},{color:'#ffee00',anchor:0.88}], phosphorGlow:15, luminanceLift:10, scanlines:10, chromaShift:3 } },
+  { name:'AVATAR', category:'vivid', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#000814',anchor:0},{color:'#001a33',anchor:0.35},{color:'#003366',anchor:0.6},{color:'#0099aa',anchor:0.82},{color:'#44ffcc',anchor:1}], contrast:45, highlights:1.2, shadows:1.2, phosphorGlow:36 } },
+  { name:'STREETS OF RAGE', category:'vivid', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#000820',anchor:0},{color:'#001850',anchor:0.25},{color:'#0044aa',anchor:0.55},{color:'#ff8800',anchor:0.82},{color:'#ffeeaa',anchor:1}], contrast:40, highlights:1.1, phosphorGlow:15 } },
   { name:'CHANTS OF SENNAAR', category:'vivid', settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#8e2111',anchor:0.11},{color:'#c92c3d',anchor:0.36},{color:'#9f5417',anchor:0.52},{color:'#61bc81',anchor:0.55},{color:'#cc9e24',anchor:0.64},{color:'#ffea38',anchor:0.84}] } },
-  { name:'ASTRAL CHAIN', category:'vivid', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#010103',anchor:0},{color:'#10146a',anchor:0.1},{color:'#2436d6',anchor:0.55},{color:'#973fac',anchor:0.63},{color:'#b3a3dc',anchor:0.83}], midtones:1.6, highlights:0.85, shadows:2.05, phosphorGlow:25, luminanceLift:25 } },
+  { name:'ASTRAL CHAIN', category:'vivid', settings:{ mode:'dither', algo:'atkinson', palette:[{color:'#010103',anchor:0},{color:'#10146a',anchor:0.1},{color:'#2436d6',anchor:0.55},{color:'#973fac',anchor:0.63},{color:'#b3a3dc',anchor:0.83}], midtones:1.6, highlights:0.85, shadows:2.05, phosphorGlow:15, luminanceLift:25 } },
   // ── Duotone ──
   { name:'ROSE', category:'duotone', settings:{ mode:'halftone', htShape:'circle', htInk:'#4a1020', htPaper:'#f6d5c9', htAngle:45, contrast:20, midtones:1.1, highlights:0.9 } },
   { name:'NAVY', category:'duotone', settings:{ mode:'dither', algo:'bayer', palette:[{color:'#0a1428',anchor:0},{color:'#e8dfc8',anchor:1}], contrast:35, midtones:1.1, highlights:0.9 } },
@@ -231,12 +231,12 @@ const LOOK_PRESETS = [
   { name:'STIPPLE', category:'mono', carriesDetail:true, settings:{ mode:'dither', algo:'diffusion', palette:[{color:'#050505',anchor:0},{color:'#f4f2ec',anchor:1}], detail:85, contrast:40, midtones:0.9, highlights:1.15, shadows:1.3 } },
   // ── Riso ──
   { name:'AKIRA MANGA', category:'riso', settings:{ mode:'halftone', htShape:'square', htInk:'#0a0808', htPaper:'#f4f0e8', htAngle:45, contrast:30 } },
-  { name:'PAPRIKA', category:'riso', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, phosphorGlow:30 } },
-  { name:'ARRIVAL', category:'riso', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0f1a', htPaper:'#8899aa', htAngle:60, contrast:20, phosphorGlow:20 } },
-  { name:'JOURNEY', category:'riso', settings:{ mode:'halftone', htShape:'line', htInk:'#3a1a00', htPaper:'#f0c860', htAngle:0, contrast:20, midtones:1.1, highlights:0.9, phosphorGlow:25 } },
+  { name:'PAPRIKA', category:'riso', settings:{ mode:'halftone', htShape:'diamond', htInk:'#6600aa', htPaper:'#ff6600', htAngle:30, phosphorGlow:18 } },
+  { name:'ARRIVAL', category:'riso', settings:{ mode:'halftone', htShape:'circle', htInk:'#0a0f1a', htPaper:'#8899aa', htAngle:60, contrast:20, phosphorGlow:12 } },
+  { name:'JOURNEY', category:'riso', settings:{ mode:'halftone', htShape:'line', htInk:'#3a1a00', htPaper:'#f0c860', htAngle:0, contrast:20, midtones:1.1, highlights:0.9, phosphorGlow:15 } },
   // ── Type ──
-  { name:'THE MATRIX', category:'type', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#00ff41', asciiBg:'#000000', asciiCutout:22, phosphorGlow:30, scanlines:25 } },
-  { name:'AMBER TERMINAL', category:'type', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#ffb000', asciiBg:'#140e06', asciiCutout:20, phosphorGlow:30 } },
+  { name:'THE MATRIX', category:'type', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#00ff41', asciiBg:'#000000', asciiCutout:22, phosphorGlow:18, scanlines:25 } },
+  { name:'AMBER TERMINAL', category:'type', settings:{ mode:'ascii', asciiRamp:'standard', asciiFg:'#ffb000', asciiBg:'#140e06', asciiCutout:20, phosphorGlow:18 } },
   { name:'ASCII CLASSIC', category:'type', settings:{ mode:'ascii', asciiRamp:'dense', asciiFg:'#1c1814', asciiBg:'#f8f6f0', asciiInvert:true, asciiCutout:32, contrast:30 } },
 ];
 
@@ -1644,7 +1644,7 @@ export default function Phosphor() {
         <Panel key={key} label={label} bare>
           {isDevices &&
             <p className="text-[11px] leading-relaxed text-zinc-500 -mt-1">
-              Remaps photo's colors to device's real gamut and snaps Detail to its native pixel density.
+              Maps colors to device gamut and Detail to native pixel density.
             </p>}
           <div className="grid grid-cols-4 md:grid-cols-2 gap-1.5">
             {shown.map(p=>{
@@ -1745,7 +1745,7 @@ export default function Phosphor() {
               <input type="range" min={0} max={1} step={0.01} value={entry.anchor}
                 onChange={e=>updateAnchor(entry.id,parseFloat(e.target.value))} className="flex-1"/>
               {palette.length>2 &&
-                <button onClick={()=>removeColor(entry.id)} title="Remove color" aria-label="remove color"
+                <button onClick={()=>removeColor(entry.id)} data-tip="Remove color" aria-label="remove color"
                   className="remove-btn text-zinc-600 hover:text-amber-400 w-4 flex items-center justify-center shrink-0">
                   <X size={10}/>
                 </button>}
@@ -1759,7 +1759,7 @@ export default function Phosphor() {
             <ArrowLeftRight size={10}/> Invert
           </button>}
         <button onClick={addColor} disabled={palette.length>=8}
-          title={palette.length>=8?'Maximum of 8 colors reached':'Add a color'}
+          data-tip={palette.length>=8?'Maximum of 8 colors reached':'Add a color'}
           className="mt-1 w-full py-1 border border-dashed border-zinc-800 enabled:hover:border-amber-700 text-zinc-600 enabled:hover:text-amber-400 disabled:opacity-40 disabled:cursor-default flex items-center justify-center gap-1 text-xs">
           <Plus size={10}/> Add color
         </button>
@@ -1846,6 +1846,41 @@ export default function Phosphor() {
   // Clamped 34–54dvh so it never starves the editor.
   const previewHeight = `clamp(34dvh, calc(${(100/imgAspect).toFixed(1)}vw + 7dvh), 54dvh)`;
 
+  // Fast icon tooltips (desktop / hover-capable pointers only). Native `title` waits ~1s to
+  // appear, which feels broken on the icon actions (section reset, before, remove colour…). A
+  // single delegated listener shows a styled tooltip for any [data-tip] element after a short
+  // delay instead. Touch devices keep their native behaviour (no hover) and are skipped.
+  const [tip, setTip] = useState(null);
+  useEffect(() => {
+    if (!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) return;
+    let timer, cur = null;
+    const clear = () => { clearTimeout(timer); cur = null; setTip(null); };
+    const over = (e) => {
+      const el = e.target.closest?.('[data-tip]');
+      if (el === cur) return;
+      clearTimeout(timer); cur = el;
+      const text = el?.getAttribute('data-tip');
+      if (!text) { setTip(null); return; }
+      timer = setTimeout(() => {
+        const r = el.getBoundingClientRect();
+        const above = r.top > 44;
+        setTip({ text, x: r.left + r.width / 2, y: above ? r.top - 6 : r.bottom + 6, above });
+      }, 150);
+    };
+    const out = (e) => { if (e.target.closest?.('[data-tip]')) clear(); };
+    document.addEventListener('pointerover', over);
+    document.addEventListener('pointerout', out);
+    document.addEventListener('pointerdown', clear, true);
+    window.addEventListener('scroll', clear, true);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('pointerover', over);
+      document.removeEventListener('pointerout', out);
+      document.removeEventListener('pointerdown', clear, true);
+      window.removeEventListener('scroll', clear, true);
+    };
+  }, []);
+
   return (
     <div className="fixed inset-0 flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
       style={{paddingTop:'env(safe-area-inset-top)',paddingLeft:'env(safe-area-inset-left)',paddingRight:'env(safe-area-inset-right)'}}>
@@ -1885,10 +1920,16 @@ export default function Phosphor() {
         }
       `}</style>
 
+      {tip &&
+        <div className="pointer-events-none fixed z-[100] whitespace-nowrap px-2 py-1 text-[11px] tracking-wide text-zinc-200 bg-zinc-900 border border-zinc-700 shadow-md"
+          style={{left:tip.x, top:tip.y, transform:`translate(-50%, ${tip.above?'-100%':'0'})`}}>
+          {tip.text}
+        </div>}
+
       {/* HEADER */}
       <div className={`${lb?'hidden':'flex'} items-center justify-between px-2 sm:px-4 py-1 sm:py-2.5 border-b border-zinc-800 shrink-0 gap-2`}>
         <div className="flex items-center gap-4 sm:gap-6 md:gap-8 min-w-0">
-          <button onClick={()=>setAboutOpen(true)} title="About Phosphor Studio"
+          <button onClick={()=>setAboutOpen(true)} data-tip="About Phosphor Studio" aria-label="About Phosphor Studio"
             className="group flex items-center gap-2 min-w-0 cursor-pointer">
             <img src="/favicon.png" alt="Phosphor Studio" className="w-6 h-6 shrink-0 rounded-[3px] transition-opacity group-hover:opacity-80"/>
             <h1 className="hidden sm:block text-base whitespace-nowrap tracking-tight">
@@ -1896,18 +1937,18 @@ export default function Phosphor() {
             </h1>
           </button>
           <div className="flex items-center gap-1">
-            <button onClick={undo} disabled={!canUndo} title="undo (⌘Z)" aria-label="undo"
+            <button onClick={undo} disabled={!canUndo} data-tip="undo (⌘Z)" aria-label="undo"
               className="tap-target flex items-center justify-center w-7 h-7 shrink-0 md:border md:border-zinc-700 text-zinc-500 enabled:hover:text-amber-300 md:enabled:hover:border-amber-600 disabled:opacity-30 disabled:cursor-default transition-colors">
               <Undo2 size={14}/>
             </button>
-            <button onClick={redo} disabled={!canRedo} title="redo (⌘⇧Z)" aria-label="redo"
+            <button onClick={redo} disabled={!canRedo} data-tip="redo (⌘⇧Z)" aria-label="redo"
               className="tap-target flex items-center justify-center w-7 h-7 shrink-0 md:border md:border-zinc-700 text-zinc-500 enabled:hover:text-amber-300 md:enabled:hover:border-amber-600 disabled:opacity-30 disabled:cursor-default transition-colors">
               <Redo2 size={14}/>
             </button>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <label title="upload" aria-label="upload"
+          <label data-tip="upload" aria-label="upload"
             className="tap-target flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1.5 text-xs text-zinc-400 hover:text-amber-300 cursor-pointer md:border md:border-zinc-700 md:hover:border-amber-600 tracking-wide transition-colors">
             <Upload size={14} className="sm:w-3 sm:h-3"/> <span className="hidden sm:inline">UPLOAD</span>
             <input type="file" accept="image/*" className="hidden" onChange={handleFile}/>
@@ -1951,34 +1992,31 @@ export default function Phosphor() {
               <div className="flex items-center gap-1.5">
                 {/* Cohesive zoom-control group: −  100%  +  Fit */}
                 <div className="flex items-center border border-zinc-700 divide-x divide-zinc-700">
-                  <button onClick={()=>zoomAt(viewRef.current.zoom-0.25,0,0)} title="Zoom out  (−)" aria-label="zoom out"
+                  <button onClick={()=>zoomAt(viewRef.current.zoom-0.25,0,0)} data-tip="Zoom out  (−)" aria-label="zoom out"
                     className="icon-btn w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-amber-300 hover:bg-amber-950/30">
                     <ZoomOut size={12}/>
                   </button>
-                  <button onClick={()=>zoomAt(1,0,0)} title="Zoom to 100%"
+                  <button onClick={()=>zoomAt(1,0,0)} data-tip="Zoom to 100%" aria-label="Zoom to 100%"
                     className="text-xs text-zinc-500 hover:text-amber-300 hover:bg-amber-950/30 w-11 h-7 flex items-center justify-center tabular-nums">
                     {Math.round(zoom*100)}%
                   </button>
-                  <button onClick={()=>zoomAt(viewRef.current.zoom+0.25,0,0)} title="Zoom in  (+)" aria-label="zoom in"
+                  <button onClick={()=>zoomAt(viewRef.current.zoom+0.25,0,0)} data-tip="Zoom in  (+)" aria-label="zoom in"
                     className="icon-btn w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-amber-300 hover:bg-amber-950/30">
                     <ZoomIn size={12}/>
                   </button>
-                  <button onClick={resetView} title="Fit image to view  (0)"
+                  <button onClick={resetView} data-tip="Fit image to view  (0)" aria-label="Fit image to view"
                     className="text-xs text-zinc-500 hover:text-amber-300 hover:bg-amber-950/30 px-2.5 h-7 flex items-center tracking-wide">
                     FIT
                   </button>
                 </div>
-                <div className="hidden md:block relative group ml-2">
+                <div className="hidden md:block ml-2">
                   <button
                     onPointerDown={e=>{ if(outputUrl){ e.preventDefault(); setComparing(true); } }}
                     onPointerUp={()=>setComparing(false)} onPointerLeave={()=>setComparing(false)}
-                    disabled={!outputUrl} aria-label="Hold to view original"
+                    disabled={!outputUrl} data-tip="Hold to view original" aria-label="Hold to view original"
                     className={`flex select-none items-center gap-1.5 px-2 h-7 border text-xs transition-colors ${comparing?'border-amber-600 text-amber-100 bg-amber-950/40':'border-zinc-700 text-zinc-500'} enabled:hover:border-amber-600 enabled:hover:text-amber-300 disabled:opacity-30 disabled:cursor-default`}>
                     <Eye size={12}/> BEFORE
                   </button>
-                  <span className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap px-2 py-1 text-[11px] tracking-wide text-zinc-300 bg-zinc-900 border border-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity">
-                    Hold to view original
-                  </span>
                 </div>
               </div>
               <a href="https://rodrigosilva.design" target="_blank" rel="noopener noreferrer"
@@ -1997,7 +2035,7 @@ export default function Phosphor() {
                 {MOBILE_TABS.map(([v,label,Icon])=>{
                   const on = (activeTab===v) || (v==='rendering' && !mobileTabIds.includes(activeTab));
                   return (
-                    <button key={v} onClick={()=>setActiveTab(v)} title={label} aria-label={label}
+                    <button key={v} onClick={()=>setActiveTab(v)} data-tip={label} aria-label={label}
                       className={`tap-target flex-1 flex items-center justify-center py-3 border-b-2 transition-colors ${on?'text-amber-100 border-amber-600':'text-zinc-500 hover:text-zinc-300 border-transparent'}`}>
                       <Icon size={17}/>
                     </button>
@@ -2171,7 +2209,7 @@ function AboutModal({onClose}) {
 
 function InvertButton({onClick,title}) {
   return (
-    <button onClick={onClick} title={title} aria-label={title}
+    <button onClick={onClick} data-tip={title} aria-label={title}
       className="icon-btn flex items-center justify-center w-7 h-7 shrink-0 border border-zinc-700 hover:border-amber-600 text-zinc-500 hover:text-amber-300 transition-colors">
       <ArrowLeftRight size={11}/>
     </button>
@@ -2180,7 +2218,7 @@ function InvertButton({onClick,title}) {
 
 function ResetButton({onClick,title}) {
   return (
-    <button onClick={onClick} title={title} aria-label={title}
+    <button onClick={onClick} data-tip={title} aria-label={title}
       className="flex items-center justify-center w-6 h-6 -my-1 shrink-0 text-zinc-600 hover:text-amber-300 transition-colors">
       <RotateCcw size={12}/>
     </button>
