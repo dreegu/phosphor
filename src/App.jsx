@@ -453,7 +453,12 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut,satMul=1.75,dAmt=1){
 // ─── RENDER: DITHER ──────────────────────────────────────────────────────────
 function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut,saturation=100}) {
   const satMul = 1.75*(saturation/100), dAmt = 1;
-  const sw = Math.max(1,Math.round(w/px)), sh = Math.max(1,Math.round(h/px));
+  // Integer pixelation: cell size `c` is a whole number of output px, and we
+  // upscale by exactly `c` so every cell is uniform (c×c). A fractional upscale
+  // ratio (round(w/px) buffer drawn to w) makes nearest-neighbor produce uneven
+  // 1px/2px cells — the "broken grid" artifact. ceil so sw*c>=w (overhang cropped).
+  const c = Math.max(1,Math.round(px));
+  const sw = Math.max(1,Math.ceil(w/c)), sh = Math.max(1,Math.ceil(h/c));
   const small = document.createElement('canvas');
   small.width=sw; small.height=sh;
   const sctx = small.getContext('2d');
@@ -468,7 +473,7 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adapti
     canvas.width=w; canvas.height=h;
     const ctx=canvas.getContext('2d');
     ctx.imageSmoothingEnabled=false;
-    ctx.drawImage(small,0,0,sw,sh,0,0,w,h);
+    ctx.drawImage(small,0,0,sw,sh,0,0,sw*c,sh*c);
     return canvas;
   }
   const sorted = [...palette].sort((a,b) => a.anchor-b.anchor);
@@ -538,7 +543,7 @@ function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adapti
   canvas.width=w; canvas.height=h;
   const ctx=canvas.getContext('2d');
   ctx.imageSmoothingEnabled=false;
-  ctx.drawImage(small,0,0,sw,sh,0,0,w,h);
+  ctx.drawImage(small,0,0,sw,sh,0,0,sw*c,sh*c);
   return canvas;
 }
 
