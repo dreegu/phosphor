@@ -933,6 +933,12 @@ export default function Phosphor() {
   const [adaptiveCount, setAdaptiveCount] = useState(16); // adaptive palette size (default to max)
   const [gamut, setGamut] = useState('full');             // adaptive colour constraint / device gamut
   const [showAllDevices, setShowAllDevices] = useState(false);   // Devices section: reveal beyond the first row set
+  // Mobile presets: horizontal filmstrip with a sticky category rail (jump-to + scroll-spy).
+  const [activeCat, setActiveCat] = useState(CATEGORIES[0][0]);
+  const filmRef = useRef(null);          // horizontal scroll container
+  const catRefs = useRef({});            // first card element of each category (for jump + spy)
+  const tagRefs = useRef({});            // category tag buttons (to keep the active one in view)
+  const spyRaf = useRef(0);
   const [detail, setDetail] = useState(DEFAULT_DETAIL);   // unified 0-100, higher = more detail
   // The load/upload pixelisation reveal animates THIS (render-only) — never the slider value or
   // history — so it reads as a transition, not a user edit. null = render at the real detail.
@@ -991,7 +997,10 @@ export default function Phosphor() {
   const outputCanvasRef = useRef(null);
   const ctrlRef = useRef(null);
   // Each tab starts at the top — don't inherit the previous tab's scroll position.
-  useEffect(() => { if (ctrlRef.current) ctrlRef.current.scrollTop = 0; }, [activeTab]);
+  useEffect(() => {
+    if (ctrlRef.current) ctrlRef.current.scrollTop = 0;
+    if (activeTab === 'presets' && filmRef.current) { filmRef.current.scrollLeft = 0; setActiveCat(CATEGORIES[0][0]); }
+  }, [activeTab]);
   const zoomAreaRef = useRef(null);
   const previewImgRef = useRef(null);
   // Nearest-neighbour (pixelated) scaling only looks right when the render is shown at or
@@ -1689,6 +1698,86 @@ export default function Phosphor() {
     </div>
   </>);
 
+  // ── Mobile presets: one horizontal filmstrip of all looks (category order, no section
+  //    breaks) under a sticky category rail. Tapping a tag jumps the strip to that category;
+  //    scrolling the strip highlights the tag you're currently in (scroll-spy). ──
+  const scrollToCat = (key) => {
+    const el = catRefs.current[key];
+    if (el && filmRef.current) filmRef.current.scrollTo({ left: Math.max(0, el.offsetLeft - 12), behavior: 'smooth' });
+    setActiveCat(key);
+    tagRefs.current[key]?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  };
+  const onFilmScroll = () => {
+    if (spyRaf.current) return;
+    spyRaf.current = requestAnimationFrame(() => {
+      spyRaf.current = 0;
+      const film = filmRef.current; if (!film) return;
+      const sl = film.scrollLeft;
+      let cur = CATEGORIES[0][0];
+      for (const [key] of CATEGORIES) {
+        const el = catRefs.current[key];
+        if (!el) continue;
+        if (el.offsetLeft - 28 <= sl) cur = key; else break;
+      }
+      setActiveCat(prev => {
+        if (prev !== cur) tagRefs.current[cur]?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+        return cur;
+      });
+    });
+  };
+  const presetsBodyMobile = (
+    <div className="anim-fadein flex flex-1 min-h-0 flex-col">
+      <div className="px-4 pt-3 pb-2 shrink-0">
+        <NumSlider label="Detail" value={detail} min={0} max={100} step={mode==='dither'?DITHER_DETAIL_STEP:1} onChange={setDetailOwned}/>
+      </div>
+      <div className="no-scrollbar flex shrink-0 gap-1.5 overflow-x-auto px-4 pb-2.5">
+        {CATEGORIES.map(([key,label])=>{
+          if(!LOOK_PRESETS.some(p=>p.category===key)) return null;
+          const on = activeCat===key;
+          return (
+            <button key={key} ref={el=>tagRefs.current[key]=el} onClick={()=>scrollToCat(key)}
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-[11px] tracking-wide transition-colors ${on?'border-amber-600 bg-amber-950/40 text-amber-100':'border-zinc-800 text-zinc-500 active:text-zinc-300'}`}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {/* ~3.7 tall 2:3 cards in view, the rest scrolling off the right. Card width scales with
+          the viewport so bigger phones get bigger thumbnails; the strip is centred in whatever
+          editor height is left. */}
+      <div className="flex flex-1 min-h-0 items-center overflow-hidden">
+        <div ref={filmRef} onScroll={onFilmScroll}
+          className="no-scrollbar relative flex w-full items-center gap-2 overflow-x-auto overflow-y-hidden px-4 py-1">
+          {CATEGORIES.map(([key],ci)=>{
+            const looks = LOOK_PRESETS.filter(p=>p.category===key);
+            if(!looks.length) return null;
+            return (
+              <div key={key} className="flex items-stretch gap-2">
+                {ci>0 && <div className="mr-1 w-px shrink-0 self-stretch bg-zinc-800"/>}
+                {looks.map((p,pi)=>{
+                  const on=activeLook===p.name;
+                  return (
+                    <button key={p.name} onClick={()=>applyLookPreset(p)}
+                      ref={pi===0 ? (el=>{catRefs.current[key]=el;}) : undefined}
+                      className={`group flex shrink-0 flex-col overflow-hidden border transition-colors ${on?'border-amber-600':'border-zinc-800'}`}
+                      style={{width:'clamp(104px, 26vw, 184px)'}}>
+                      <div className="relative aspect-[2/3] w-full shrink-0 overflow-hidden bg-zinc-900">
+                        {lookThumbs[p.name]
+                          ? <img src={lookThumbs[p.name]} alt="" className="h-full w-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
+                          : <div className="h-full w-full animate-pulse bg-zinc-800"/>}
+                      </div>
+                      <div className={`px-0.5 py-1.5 text-center text-[10px] leading-tight ${on?'bg-amber-950/40 text-amber-100':'text-zinc-400'}`}>{p.name}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
   const renderingPanel = (
     <Panel label="Rendering">
       <Field label="Mode">
@@ -1918,6 +2007,8 @@ export default function Phosphor() {
         @keyframes fadein{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:translateY(0)}}
         .anim-fadein{animation:fadein 0.18s ease-out}
         @keyframes boot{0%{transform:translateX(-120%)}100%{transform:translateX(420%)}}
+        .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+        .no-scrollbar::-webkit-scrollbar{display:none}
         .checker{background-image:linear-gradient(45deg,#26262b 25%,transparent 25%),linear-gradient(-45deg,#26262b 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#26262b 75%),linear-gradient(-45deg,transparent 75%,#26262b 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:#161619}
         @media (pointer:coarse){
           .btn{padding:12px 0;min-height:44px}
@@ -2072,7 +2163,7 @@ export default function Phosphor() {
 
             {isNarrow ? (
               /* MOBILE: one section per tab */
-              activeTab==='presets' ? presetsBody
+              activeTab==='presets' ? presetsBodyMobile
               : activeTab==='appearance' ? <div className="anim-fadein flex flex-col">{appearancePanel}</div>
               : activeTab==='color' ? <div className="anim-fadein flex flex-col">{mobileColorPanel}</div>
               : activeTab==='atmosphere' ? <div className="anim-fadein flex flex-col">{atmospherePanel}</div>
