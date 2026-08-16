@@ -139,7 +139,7 @@ const PALETTE_PRESETS = {
 };
 
 // Baseline every look resets to, so a preset only declares what it changes.
-const LOOK_BASE = { exposure:0, contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, phosphorGrid:0, saturation:100, ditherAmount:100, asciiInvert:false, asciiCutout:0, asciiBold:false, dcolor:'palette', adaptiveCount:16, gamut:'full' };
+const LOOK_BASE = { exposure:0, contrast:0, midtones:1, highlights:1, shadows:1, phosphorGlow:0, luminanceLift:0, scanlines:0, noise:0, chromaShift:0, phosphorGrid:0, saturation:100, asciiInvert:false, asciiCutout:0, asciiBold:false, dcolor:'palette', adaptiveCount:16, gamut:'full' };
 
 // Unified "detail": 0-100 where higher = more detail. Maps to each mode's underlying
 // cell/dot size (smaller size = finer = more detail), so the control reads intuitively.
@@ -451,8 +451,8 @@ function ditherAdaptive(data,sw,sh,out,algo,getY,n,gamut,satMul=1.75,dAmt=1){
 }
 
 // ─── RENDER: DITHER ──────────────────────────────────────────────────────────
-function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut,saturation=100,ditherAmount=100}) {
-  const satMul = 1.75*(saturation/100), dAmt = ditherAmount/100;
+function renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut,saturation=100}) {
+  const satMul = 1.75*(saturation/100), dAmt = 1;
   const sw = Math.max(1,Math.round(w/px)), sh = Math.max(1,Math.round(h/px));
   const small = document.createElement('canvas');
   small.width=sw; small.height=sh;
@@ -620,7 +620,6 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
   const{width:w,height:h}=canvas;
   if(phosphorGlow>0){
     const g=phosphorGlow/100;
-    const blurPx=g*Math.min(w,h)*0.06;
     // Bloom the brightest tones by VALUE (max channel), not luminance, so vivid colours —
     // a saturated blue, a light lavender — glow too, not only near-white. A soft knee ramps
     // each pixel's contribution in instead of the old hard >0.8 luminance cutoff.
@@ -635,10 +634,24 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
       if(wt>0){ bd[i]=sd[i]*wt; bd[i+1]=sd[i+1]*wt; bd[i+2]=sd[i+2]*wt; bd[i+3]=255; }
     }
     brctx.putImageData(bimg,0,0);
-    // blur the isolated highlights and screen-composite back
-    const blur=document.createElement('canvas'); blur.width=w; blur.height=h;
-    const blctx=blur.getContext('2d'); blctx.filter=`blur(${blurPx}px)`; blctx.drawImage(bright,0,0);
-    ctx.save(); ctx.globalCompositeOperation='screen'; ctx.globalAlpha=Math.min(1,g*1.5); ctx.drawImage(blur,0,0); ctx.restore();
+    // Blur the isolated highlights WITHOUT ctx.filter (Safari/iOS don't support it — that was
+    // the "bloom does nothing on my phone" bug): downscale then upscale with smoothing, in two
+    // steps for a smoother spread. Strength drives how small the intermediate is.
+    const f=Math.max(0.03, 0.42 - g*0.38);         // g=0 → 0.42, g=1 → ~0.05 (softer)
+    const dw=Math.max(1,Math.round(w*f)), dh=Math.max(1,Math.round(h*f));
+    const down=document.createElement('canvas'); down.width=dw; down.height=dh;
+    const dctx=down.getContext('2d'); dctx.imageSmoothingEnabled=true; dctx.imageSmoothingQuality='high';
+    dctx.drawImage(bright,0,0,dw,dh);
+    const dw2=Math.max(1,Math.round(dw*0.5)), dh2=Math.max(1,Math.round(dh*0.5));
+    const down2=document.createElement('canvas'); down2.width=dw2; down2.height=dh2;
+    const d2ctx=down2.getContext('2d'); d2ctx.imageSmoothingEnabled=true; d2ctx.imageSmoothingQuality='high';
+    d2ctx.drawImage(down,0,0,dw2,dh2);
+    ctx.save();
+    ctx.globalCompositeOperation='screen'; ctx.globalAlpha=Math.min(1,g*1.6);
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+    ctx.drawImage(down2,0,0,dw2,dh2,0,0,w,h);
+    ctx.restore();
+    ctx.imageSmoothingEnabled=false;
   }
   if(luminanceLift>0){
     // gentle uniform overexposure via additive white at very low opacity
@@ -719,7 +732,7 @@ function renderSettingsToCanvas(img,s,w,h){
   const scale=Math.max(0.05,Math.min(1,Math.max(w,h)/900));
   const sizeFor=(m,legacy)=> (s.detail!==undefined ? detailToSize(m,s.detail) : legacy) * scale;
   let canvas;
-  if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,sizeFor('dither',s.pixelSize||5)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount,gamut:s.gamut,saturation:s.saturation,ditherAmount:s.ditherAmount});
+  if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,sizeFor('dither',s.pixelSize||5)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount,gamut:s.gamut,saturation:s.saturation});
   else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:Math.max(3,sizeFor('ascii',s.asciiSize||8)),getY,invert:s.asciiInvert,cutout:s.asciiCutout,bold:s.asciiBold!==false});
   else canvas=renderHalftone({img,w,h,shape:s.htShape||'circle',dotSize:Math.max(0.8,sizeFor('halftone',s.htSize||3.5)),angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY});
   const darkColor=mode==='dither'?(([...(s.palette||[])].sort((a,b)=>a.anchor-b.anchor)[0]||{}).color||'#000'):mode==='ascii'?(s.asciiBg||'#000'):'#000';
@@ -797,8 +810,8 @@ function buildHalftoneSVG({img,w,h,shape,dotSize,angle,inkColor,paperColor,getY,
 
 // Dither → sample the rendered block grid and emit rects, merging horizontal runs of
 // one colour so files stay lean. Reuses renderDither so the pattern matches exactly.
-function buildDitherSVG({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut,saturation,ditherAmount}){
-  const canvas=renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut,saturation,ditherAmount});
+function buildDitherSVG({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut,saturation}){
+  const canvas=renderDither({img,w,h,px,palette,algo,getY,transparent,colorMode,adaptiveCount,gamut,saturation});
   const cw=canvas.width, ch=canvas.height;
   const data=canvas.getContext('2d').getImageData(0,0,cw,ch).data;
   const step=Math.max(1,Math.round(px));
@@ -828,7 +841,7 @@ function renderSettingsToSVG(img,s,w,h){
   const tp=!!s.transparent;
   if(mode==='ascii') return buildAsciiSVG({img,w,h,ramp:s.asciiRamp||'standard',fgColor:s.asciiFg||'#00ff41',bgColor:s.asciiBg||'#000000',cellSize:detailToSize('ascii',s.detail??55),getY,transparent:tp,invert:!!s.asciiInvert,cutout:s.asciiCutout||0,bold:s.asciiBold!==false});
   if(mode==='halftone') return buildHalftoneSVG({img,w,h,shape:s.htShape||'circle',dotSize:detailToSize('halftone',s.detail??55),angle:s.htAngle||45,inkColor:s.htInk||'#2a2420',paperColor:s.htPaper||'#f2ede4',getY,transparent:tp});
-  return buildDitherSVG({img,w,h,px:Math.max(1,detailToSize('dither',s.detail??55)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,transparent:tp,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount,gamut:s.gamut,saturation:s.saturation,ditherAmount:s.ditherAmount});
+  return buildDitherSVG({img,w,h,px:Math.max(1,detailToSize('dither',s.detail??55)),palette:(s.palette||[]).map(p=>({...p})),algo:s.algo||'bayer',getY,transparent:tp,colorMode:s.dcolor,adaptiveCount:s.adaptiveCount,gamut:s.gamut,saturation:s.saturation});
 }
 
 const EXPORT_MAX = 4096;    // raster export ceiling (long side) — safe across browsers
@@ -905,7 +918,6 @@ export default function Phosphor() {
   const [chromaShift, setChromaShift] = useState(0);
   const [phosphorGrid, setPhosphorGrid] = useState(0);   // RGB subpixel mask (Effects)
   const [saturation, setSaturation] = useState(100);      // adaptive palette vibrance (100 = default)
-  const [ditherAmount, setDitherAmount] = useState(100);  // 0 = flat posterize, 100 = full dither
 
   const [transparentBg, setTransparentBg] = useState(false);
   const [format, setFormat] = useState('jpeg');
@@ -1034,7 +1046,6 @@ export default function Phosphor() {
     if(s.chromaShift!==undefined) setChromaShift(s.chromaShift);
     if(s.phosphorGrid!==undefined) setPhosphorGrid(s.phosphorGrid);
     if(s.saturation!==undefined) setSaturation(s.saturation);
-    if(s.ditherAmount!==undefined) setDitherAmount(s.ditherAmount);
   };
 
   // Fresh entry: a random sample image paired with a random look, so the landing frame
@@ -1381,7 +1392,7 @@ export default function Phosphor() {
     let canvas;
     const tp=transparentBg;
     const dv = revealDetail ?? detail;   // render-only reveal override; falls back to the slider value
-    if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,detailToSize('dither',dv)*scale),palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount,gamut,saturation,ditherAmount});
+    if(mode==='dither') canvas=renderDither({img,w,h,px:Math.max(1,detailToSize('dither',dv)*scale),palette,algo,getY,transparent:tp,colorMode:dcolor,adaptiveCount,gamut,saturation});
     else if(mode==='ascii') canvas=renderAscii({img,w,h,ramp:asciiRamp,fgColor:asciiFg,bgColor:asciiBg,cellSize:Math.max(3,detailToSize('ascii',dv)*scale),getY,transparent:tp,invert:asciiInvert,cutout:asciiCutout,bold:asciiBold});
     else canvas=renderHalftone({img,w,h,shape:htShape,dotSize:Math.max(0.8,detailToSize('halftone',dv)*scale),angle:htAngle,inkColor:htInk,paperColor:htPaper,getY,transparent:tp});
     if (!canvas) return null;
@@ -1625,7 +1636,6 @@ export default function Phosphor() {
           <Dropdown value={algo} onChange={setAlgo}
             options={[['bayer2','Grid 2×2'],['bayer','Grid 4×4'],['bayer8','Grid 8×8'],['diamond','Diamond'],['bluenoise','Blue noise'],['diffusion','Floyd–Steinberg'],['jjn','Jarvis'],['stucki','Stucki'],['sierra','Sierra'],['atkinson','Atkinson'],['riemersma','Riemersma']]}/>
         </Field>
-        <NumSlider label="Dither amount" value={ditherAmount} min={0} max={100} step={1} onChange={setDitherAmount}/>
       </>}
       {mode==='ascii' &&
         <Field label="Character set">
