@@ -1713,11 +1713,20 @@ export default function Phosphor() {
       spyRaf.current = 0;
       const film = filmRef.current; if (!film) return;
       const sl = film.scrollLeft;
+      const maxScroll = film.scrollWidth - film.clientWidth;
       let cur = CATEGORIES[0][0];
       for (const [key] of CATEGORIES) {
         const el = catRefs.current[key];
         if (!el) continue;
         if (el.offsetLeft - 28 <= sl) cur = key; else break;
+      }
+      // The last categories don't have enough cards after them to reach the left edge, so their
+      // tag would never light on its own. Once scrolled to the very end, select the last
+      // non-empty category — otherwise jumping to (or landing on) Type would immediately deselect.
+      if (maxScroll > 0 && sl >= maxScroll - 2) {
+        for (let i = CATEGORIES.length - 1; i >= 0; i--) {
+          if (LOOK_PRESETS.some(p => p.category === CATEGORIES[i][0])) { cur = CATEGORIES[i][0]; break; }
+        }
       }
       setActiveCat(prev => {
         if (prev !== cur) tagRefs.current[cur]?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
@@ -1742,38 +1751,37 @@ export default function Phosphor() {
           );
         })}
       </div>
-      {/* ~3.7 tall 2:3 cards in view, the rest scrolling off the right. Card width scales with
-          the viewport so bigger phones get bigger thumbnails; the strip is centred in whatever
-          editor height is left. */}
-      <div className="flex flex-1 min-h-0 items-center overflow-hidden">
-        <div ref={filmRef} onScroll={onFilmScroll}
-          className="no-scrollbar relative flex w-full items-center gap-2 overflow-x-auto overflow-y-hidden px-4 py-1">
-          {CATEGORIES.map(([key],ci)=>{
+      {/* Cards fill whatever editor height is left (so nothing is clipped by the browser chrome
+          and the strip uses the real estate available), capped so they never get extreme. Fixed
+          width → ~3.7 in view; width scales with the viewport so bigger phones get bigger cards. */}
+      <div ref={filmRef} onScroll={onFilmScroll}
+        className="no-scrollbar relative flex min-h-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden px-4 py-2">
+        {(() => {
+          const items = []; let shown = 0;
+          for (const [key] of CATEGORIES) {
             const looks = LOOK_PRESETS.filter(p=>p.category===key);
-            if(!looks.length) return null;
-            return (
-              <div key={key} className="flex items-stretch gap-2">
-                {ci>0 && <div className="mr-1 w-px shrink-0 self-stretch bg-zinc-800"/>}
-                {looks.map((p,pi)=>{
-                  const on=activeLook===p.name;
-                  return (
-                    <button key={p.name} onClick={()=>applyLookPreset(p)}
-                      ref={pi===0 ? (el=>{catRefs.current[key]=el;}) : undefined}
-                      className={`group flex shrink-0 flex-col overflow-hidden border transition-colors ${on?'border-amber-600':'border-zinc-800'}`}
-                      style={{width:'clamp(104px, 26vw, 184px)'}}>
-                      <div className="relative aspect-[2/3] w-full shrink-0 overflow-hidden bg-zinc-900">
-                        {lookThumbs[p.name]
-                          ? <img src={lookThumbs[p.name]} alt="" className="h-full w-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
-                          : <div className="h-full w-full animate-pulse bg-zinc-800"/>}
-                      </div>
-                      <div className={`px-0.5 py-1.5 text-center text-[10px] leading-tight ${on?'bg-amber-950/40 text-amber-100':'text-zinc-400'}`}>{p.name}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
+            if (!looks.length) continue;
+            if (shown>0) items.push(<div key={key+'__div'} className="h-2/3 w-px shrink-0 self-center bg-zinc-800"/>);
+            looks.forEach((p,pi)=>{
+              const on = activeLook===p.name;
+              items.push(
+                <button key={p.name} onClick={()=>applyLookPreset(p)}
+                  ref={pi===0 ? (el=>{catRefs.current[key]=el;}) : undefined}
+                  className={`group flex h-full max-h-[300px] shrink-0 flex-col overflow-hidden border transition-colors ${on?'border-amber-600':'border-zinc-800'}`}
+                  style={{width:'clamp(104px, 26vw, 184px)'}}>
+                  <div className="relative min-h-0 w-full flex-1 overflow-hidden bg-zinc-900">
+                    {lookThumbs[p.name]
+                      ? <img src={lookThumbs[p.name]} alt="" className="h-full w-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
+                      : <div className="h-full w-full animate-pulse bg-zinc-800"/>}
+                  </div>
+                  <div className={`shrink-0 px-0.5 py-1.5 text-center text-[10px] leading-tight ${on?'bg-amber-950/40 text-amber-100':'text-zinc-400'}`}>{p.name}</div>
+                </button>
+              );
+            });
+            shown++;
+          }
+          return items;
+        })()}
       </div>
     </div>
   );
@@ -1988,7 +1996,7 @@ export default function Phosphor() {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-zinc-950 text-zinc-300 font-mono overflow-hidden"
-      style={{paddingTop:'env(safe-area-inset-top)',paddingLeft:'env(safe-area-inset-left)',paddingRight:'env(safe-area-inset-right)'}}>
+      style={{height:'100svh',paddingTop:'env(safe-area-inset-top)',paddingLeft:'env(safe-area-inset-left)',paddingRight:'env(safe-area-inset-right)'}}>
       <style>{`
         input[type=range]{-webkit-appearance:none;appearance:none;height:2px;background:#3f3f46;width:100%;touch-action:pan-y}
         input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;background:#f4e4c1;border-radius:0;cursor:pointer;margin-top:-4px}
