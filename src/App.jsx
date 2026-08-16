@@ -634,22 +634,20 @@ function applyAtmosphere(canvas,{phosphorGlow,luminanceLift,scanlines,noise,chro
       if(wt>0){ bd[i]=sd[i]*wt; bd[i+1]=sd[i+1]*wt; bd[i+2]=sd[i+2]*wt; bd[i+3]=255; }
     }
     brctx.putImageData(bimg,0,0);
-    // Blur the isolated highlights WITHOUT ctx.filter (Safari/iOS don't support it — that was
-    // the "bloom does nothing on my phone" bug): downscale then upscale with smoothing, in two
-    // steps for a smoother spread. Strength drives how small the intermediate is.
-    const f=Math.max(0.03, 0.42 - g*0.38);         // g=0 → 0.42, g=1 → ~0.05 (softer)
-    const dw=Math.max(1,Math.round(w*f)), dh=Math.max(1,Math.round(h*f));
-    const down=document.createElement('canvas'); down.width=dw; down.height=dh;
-    const dctx=down.getContext('2d'); dctx.imageSmoothingEnabled=true; dctx.imageSmoothingQuality='high';
-    dctx.drawImage(bright,0,0,dw,dh);
-    const dw2=Math.max(1,Math.round(dw*0.5)), dh2=Math.max(1,Math.round(dh*0.5));
-    const down2=document.createElement('canvas'); down2.width=dw2; down2.height=dh2;
-    const d2ctx=down2.getContext('2d'); d2ctx.imageSmoothingEnabled=true; d2ctx.imageSmoothingQuality='high';
-    d2ctx.drawImage(down,0,0,dw2,dh2);
+    // Smooth wide blur without ctx.filter (Safari has no canvas filter). A down→up pyramid:
+    // halve repeatedly (each is a 2×2 average) then double back, so every resample is a gentle
+    // 2× interpolation. That's a proper Gaussian-ish bloom — uniform, no blockiness, and it
+    // dissolves dither/noise into a soft haze instead of smearing it into blocks.
+    const resample=(cv,tw,th)=>{ const c=document.createElement('canvas'); c.width=tw; c.height=th;
+      const cx=c.getContext('2d'); cx.imageSmoothingEnabled=true; cx.imageSmoothingQuality='high';
+      cx.drawImage(cv,0,0,tw,th); return c; };
+    const levels=Math.round(3+g*4);   // more levels → wider, softer glow
+    const chain=[bright]; let cur=bright;
+    for(let i=0;i<levels && cur.width>2 && cur.height>2;i++){ cur=resample(cur,Math.max(1,cur.width>>1),Math.max(1,cur.height>>1)); chain.push(cur); }
+    for(let i=chain.length-2;i>=0;i--){ cur=resample(cur,chain[i].width,chain[i].height); }
     ctx.save();
-    ctx.globalCompositeOperation='screen'; ctx.globalAlpha=Math.min(1,g*1.6);
-    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-    ctx.drawImage(down2,0,0,dw2,dh2,0,0,w,h);
+    ctx.globalCompositeOperation='screen'; ctx.globalAlpha=Math.min(1,g*1.5);
+    ctx.imageSmoothingEnabled=true; ctx.drawImage(cur,0,0);
     ctx.restore();
     ctx.imageSmoothingEnabled=false;
   }
