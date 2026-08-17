@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Eye, LayoutGrid, Grid3x3, Contrast, Palette, Radio, Save, Copy, Heart, Globe, Sparkles, SlidersHorizontal, Image as ImageIcon, Sun } from 'lucide-react';
+import { Upload, Download, Plus, X, ZoomIn, ZoomOut, Share2, ArrowLeftRight, ChevronDown, Circle, Square, Diamond, Minus, RotateCcw, Undo2, Redo2, Info, Eye, LayoutGrid, Grid3x3, Contrast, Palette, Radio, Save, Copy, Heart, Globe, Sparkles, SlidersHorizontal, Image as ImageIcon, ImagePlus, Sun } from 'lucide-react';
 
 // Filter glyph (overlapping circles) for the Presets tab, à la Lightroom/Instagram.
 const FilterIcon = ({size=17}) => (
@@ -1736,10 +1736,7 @@ export default function Phosphor() {
   };
   const presetsBodyMobile = (
     <div className="anim-fadein flex flex-1 min-h-0 flex-col">
-      <div className="px-4 pt-3 pb-2 shrink-0">
-        <NumSlider label="Detail" value={detail} min={0} max={100} step={mode==='dither'?DITHER_DETAIL_STEP:1} onChange={setDetailOwned}/>
-      </div>
-      <div className="no-scrollbar flex shrink-0 gap-1.5 overflow-x-auto px-4 pb-2.5">
+      <div className="no-scrollbar flex shrink-0 gap-1.5 overflow-x-auto px-4 pt-3 pb-2.5">
         {CATEGORIES.map(([key,label])=>{
           if(!LOOK_PRESETS.some(p=>p.category===key)) return null;
           const on = activeCat===key;
@@ -1782,6 +1779,9 @@ export default function Phosphor() {
           }
           return items;
         })()}
+      </div>
+      <div className="px-4 pt-2 pb-3 shrink-0">
+        <NumSlider label="Detail" value={detail} min={0} max={100} step={mode==='dither'?DITHER_DETAIL_STEP:1} onChange={setDetailOwned}/>
       </div>
     </div>
   );
@@ -2063,9 +2063,9 @@ export default function Phosphor() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <label data-tip="upload" aria-label="upload"
-            className="tap-target flex items-center justify-center gap-1.5 w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1.5 text-xs text-zinc-400 hover:text-amber-300 cursor-pointer md:border md:border-zinc-700 md:hover:border-amber-600 tracking-wide transition-colors">
-            <Upload size={14} className="sm:w-3 sm:h-3"/> <span className="hidden sm:inline">UPLOAD</span>
+          <label data-tip="upload" aria-label="upload photo"
+            className="tap-target flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-300 hover:text-amber-300 cursor-pointer border border-zinc-700 hover:border-amber-600 tracking-wide transition-colors">
+            <ImagePlus size={15}/> <span>UPLOAD</span>
             <input type="file" accept="image/*" className="hidden" onChange={handleFile}/>
           </label>
           <div className="hidden md:block">
