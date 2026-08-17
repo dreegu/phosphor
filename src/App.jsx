@@ -1960,11 +1960,10 @@ export default function Phosphor() {
   const mobileTabIds = MOBILE_TABS.map(t=>t[0]);
   const lb = lightbox && isNarrow;   // full-screen photo view (mobile only)
   // Size the mobile preview to the photo — enough to fill the width — plus a slice of
-  // breathing room (the +7dvh) so a landscape shot isn't jammed against the bar and tabs.
-  // A portrait photo would otherwise peg the max and eat the whole screen, so cap it lower
-  // (44dvh vs 54dvh) — it stays plenty readable and leaves the presets gallery real room.
-  const previewMax = imgAspect < 1 ? 44 : 54;
-  const previewHeight = `clamp(34dvh, calc(${(100/imgAspect).toFixed(1)}vw + 7dvh), ${previewMax}dvh)`;
+  // breathing room (the +7dvh). Only tall (portrait) photos actually reach the max, so a
+  // single 48dvh cap trims portraits a little while leaving landscapes (which sit well below
+  // it) untouched — and, unlike an orientation-dependent cap, it stays continuous at square.
+  const previewHeight = `clamp(34dvh, calc(${(100/imgAspect).toFixed(1)}vw + 7dvh), 48dvh)`;
 
   // Fast icon tooltips (desktop / hover-capable pointers only). Native `title` waits ~1s to
   // appear, which feels broken on the icon actions (section reset, before, remove colour…). A
