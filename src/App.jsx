@@ -1274,6 +1274,11 @@ export default function Phosphor() {
     mq.addEventListener('change', on);
     return () => mq.removeEventListener('change', on);
   }, []);
+  // Added-to-home-screen (PWA standalone): no browser chrome, so the presets gallery gets the
+  // full screen height for bigger thumbnails.
+  const [isStandalone] = useState(() =>
+    typeof window !== 'undefined' &&
+    (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true));
 
   // Decide pixelated vs smooth from the actual on-screen size vs the render's native size.
   const checkSmooth = useCallback(() => {
@@ -1764,8 +1769,8 @@ export default function Phosphor() {
               items.push(
                 <button key={p.name} onClick={()=>applyLookPreset(p)}
                   ref={pi===0 ? (el=>{catRefs.current[key]=el;}) : undefined}
-                  className={`group flex h-full max-h-[300px] shrink-0 flex-col overflow-hidden border transition-colors ${on?'border-amber-600':'border-zinc-800'}`}
-                  style={{width:'clamp(104px, 26vw, 184px)'}}>
+                  className={`group flex h-full shrink-0 flex-col overflow-hidden border transition-colors ${on?'border-amber-600':'border-zinc-800'}`}
+                  style={{width:'clamp(104px, 26vw, 184px)', maxHeight: isStandalone ? '66dvh' : '300px'}}>
                   <div className="relative min-h-0 w-full flex-1 overflow-hidden bg-zinc-900">
                     {lookThumbs[p.name]
                       ? <img src={lookThumbs[p.name]} alt="" className="h-full w-full object-cover" style={{imageRendering:p.settings.mode==='ascii'?'auto':'pixelated'}}/>
@@ -1956,8 +1961,10 @@ export default function Phosphor() {
   const lb = lightbox && isNarrow;   // full-screen photo view (mobile only)
   // Size the mobile preview to the photo — enough to fill the width — plus a slice of
   // breathing room (the +7dvh) so a landscape shot isn't jammed against the bar and tabs.
-  // Clamped 34–54dvh so it never starves the editor.
-  const previewHeight = `clamp(34dvh, calc(${(100/imgAspect).toFixed(1)}vw + 7dvh), 54dvh)`;
+  // A portrait photo would otherwise peg the max and eat the whole screen, so cap it lower
+  // (44dvh vs 54dvh) — it stays plenty readable and leaves the presets gallery real room.
+  const previewMax = imgAspect < 1 ? 44 : 54;
+  const previewHeight = `clamp(34dvh, calc(${(100/imgAspect).toFixed(1)}vw + 7dvh), ${previewMax}dvh)`;
 
   // Fast icon tooltips (desktop / hover-capable pointers only). Native `title` waits ~1s to
   // appear, which feels broken on the icon actions (section reset, before, remove colour…). A
