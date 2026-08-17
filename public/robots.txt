@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://phosphorstudio.vercel.app/sitemap.xml
+Sitemap: https://phosphorstudio.app/sitemap.xml

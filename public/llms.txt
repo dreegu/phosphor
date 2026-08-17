@@ -4,7 +4,7 @@
 
 ## About
 
-- Phosphor Studio is a free, client-side web app at https://phosphorstudio.vercel.app/
+- Phosphor Studio is a free, client-side web app at https://phosphorstudio.app/
 - Built by Rodrigo Silva (https://rodrigosilva.design)
 - Source code: https://github.com/dreegu/phosphor
 
@@ -18,6 +18,6 @@
 
 ## Links
 
-- App: https://phosphorstudio.vercel.app/
+- App: https://phosphorstudio.app/
 - Source: https://github.com/dreegu/phosphor
 - Author: https://rodrigosilva.design

@@ -2064,7 +2064,7 @@ export default function Phosphor() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <label data-tip="upload" aria-label="upload photo"
-            className="tap-target flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-300 hover:text-amber-300 cursor-pointer border border-zinc-700 hover:border-amber-600 tracking-wide transition-colors">
+            className="tap-target flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-zinc-300 hover:text-amber-300 cursor-pointer md:border md:border-zinc-700 md:hover:border-amber-600 tracking-wide transition-colors">
             <ImagePlus size={15}/> <span>UPLOAD</span>
             <input type="file" accept="image/*" className="hidden" onChange={handleFile}/>
           </label>
